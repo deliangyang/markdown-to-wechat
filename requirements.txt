@@ -1,0 +1,5 @@
+python-dotenv
+markdown
+Pygments
+werobot
+pyquery
