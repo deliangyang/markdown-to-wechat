@@ -10,7 +10,9 @@ import json
 import os
 import pickle
 import random
+import re
 import string
+import sys
 import time
 import urllib
 import urllib.request
@@ -277,6 +279,15 @@ def format_fix(content):
     content = content.replace("<ol>\n<li>", "<ol><li>")
     content = content.replace("</li>\n</ol>", "</li></ol>")
     content = content.replace("background: #272822", gen_css("code"))
+    contenxt_x = ''
+    for line in content.split('\n'):
+        if line.find('<pre') < 0 and line.find('<code>') >= 0:
+            contenxt_x += re.sub(r'<code>([^<]+)</code>', r'<code style="%s">\1</code>' % gen_css("line_code"), line) + '\n'
+            print(contenxt_x)
+        else:
+            contenxt_x += line + '\n'
+    content = contenxt_x
+    content = content.replace("<code>", '<code style="%s">' % gen_css("code"))
     content = content.replace("""<pre style="line-height: 125%">""",
                               """<pre style="line-height: 125%; color: white; font-size: 11px;">""")
     return content
@@ -314,8 +325,8 @@ def upload_media_news(post_path):
         if image.startswith("http"):
             media_id, media_url = upload_image(image)
         else:
-            media_id, media_url = upload_image_from_path(
-                "./blog-source/source" + image)
+            _path = os.path.dirname(post_path) + '/'
+            media_id, media_url = upload_image_from_path(_path + image)
         if media_id != None:
             uploaded_images[image] = [media_id, media_url]
 
@@ -328,27 +339,27 @@ def upload_media_news(post_path):
     digest = fetch_attr(content, 'subtitle').strip().strip('"').strip('\'')
     CONTENT_SOURCE_URL = 'https://catcoding.me/p/{}'.format(link)
 
+    _, filename = os.path.split(post_path)
+    print(filename)
     articles = {
         'articles':
         [
             {
-                "title": TITLE,
+                "title": filename.replace('.md', ''),
                 "thumb_media_id": THUMB_MEDIA_ID,
                 "author": AUTHOR,
                 "digest": digest,
                 "show_cover_pic": 1,
                 "content": RESULT,
-                "content_source_url": CONTENT_SOURCE_URL
+                "content_source_url": CONTENT_SOURCE_URL,
+                "need_open_comment": 1,
             }
             # 若新增的是多图文素材，则此处应有几段articles结构，最多8段
         ]
     }
-
     fp = open('./result.html', 'w')
     fp.write(RESULT)
     fp.close()
-    return
-
     client = NewClient()
     token = client.get_access_token()
     headers = {'Content-type': 'text/plain; charset=utf-8'}
@@ -363,23 +374,18 @@ def upload_media_news(post_path):
     return resp
 
 
-def run(string_date):
+def run(path_str):
     #string_date = "2023-03-13"
-    print(string_date)
-    pathlist = Path(POST_DIR).glob('**/*.md')
-    for path in pathlist:
-        path_str = str(path)
-        content = open(path_str, 'r').read()
-        date = fetch_attr(content, 'date').strip()
-        if string_date in date:
-            if file_processed(path_str):
-                print("{} has been processed".format(path_str))
-                continue
-            print(path_str)
-            print(path_str)
-            news_json = upload_media_news(path_str)
-            print(news_json)
-            print('successful')
+    # print(string_date)
+    content = open(path_str, 'r').read()
+    date = fetch_attr(content, 'date').strip()
+    if file_processed(path_str):
+        print("{} has been processed".format(path_str))
+        # return
+    print(path_str)
+    news_json = upload_media_news(path_str)
+    print(news_json)
+    print('successful')
 
 
 def daterange(start_date, end_date):
@@ -391,10 +397,11 @@ if __name__ == '__main__':
     print("begin sync to wechat")
     init_cache()
     start_time = time.time()  # 开始时间
-    for x in daterange(datetime.now() - timedelta(days=7), datetime.now() + timedelta(days=2)):
-        print("start time: {}".format(x.strftime("%m/%d/%Y, %H:%M:%S")))
-        string_date = x.strftime('%Y-%m-%d')
-        print(string_date)
-        run(string_date)
+    run(sys.argv[1])
+    # for x in daterange(datetime.now() - timedelta(days=7), datetime.now() + timedelta(days=2)):
+    #     print("start time: {}".format(x.strftime("%m/%d/%Y, %H:%M:%S")))
+    #     string_date = x.strftime('%Y-%m-%d')
+    #     print(string_date)
+        
     end_time = time.time()  # 结束时间
     print("程序耗时%f秒." % (end_time - start_time))
