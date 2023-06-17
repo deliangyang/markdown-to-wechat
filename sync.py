@@ -178,14 +178,15 @@ def render_markdown(content):
             noclasses=True,
             pygments_style='monokai'
         ), ]
-    items = content.split("---\n")
-    post = ''
-    if len(items) == 2:
-        post = ''.join(items[2:])
-    else:
-        post = content
-
-    html = markdown.markdown(post, extensions=exts)
+    # items = content.split("---\n")
+    # post = ''
+    # if len(items) == 2:
+    #     post = ''.join(items[2:])
+    # else:
+    #     post = content
+    
+    html = markdown.markdown(content, extensions=exts)
+    
     open("origi.html", "w").write(html)
     return css_beautify(html)
 
@@ -248,7 +249,6 @@ def replace_links(content):
 
     for r in refs:
         orig = "<a href=\"{}\">{}</a>".format(html.escape(r[0]), r[1])
-        print(orig)
         content = content.replace(orig, r[2])
     content = content + "\n" + gen_css("ref_header")
     content = content + """<section class="footnotes">"""
@@ -283,11 +283,10 @@ def format_fix(content):
     for line in content.split('\n'):
         if line.find('<pre') < 0 and line.find('<code>') >= 0:
             contenxt_x += re.sub(r'<code>([^<]+)</code>', r'<code style="%s">\1</code>' % gen_css("line_code"), line) + '\n'
-            print(contenxt_x)
         else:
             contenxt_x += line + '\n'
     content = contenxt_x
-    content = content.replace("<code>", '<code style="%s">' % gen_css("code"))
+    # content = content.replace("<code>", '<code style="%s">' % gen_css("code"))
     content = content.replace("""<pre style="line-height: 125%">""",
                               """<pre style="line-height: 125%; color: white; font-size: 11px;">""")
     return content
@@ -331,7 +330,7 @@ def upload_media_news(post_path):
             uploaded_images[image] = [media_id, media_url]
 
     content = update_images_urls(content, uploaded_images)
-
+    
     THUMB_MEDIA_ID = (len(images) > 0 and uploaded_images[images[0]][0]) or ''
     AUTHOR = os.getenv('AUTHOR')
     RESULT = render_markdown(content)
