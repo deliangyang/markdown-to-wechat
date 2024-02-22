@@ -312,11 +312,11 @@ def upload_media_news(post_path):
     images = get_images_from_markdown(content)
     print(images)
     print(TITLE)
-    # if len(images) == 0 or gen_cover == "true" :
-    #     letters = string.ascii_lowercase
-    #     seed = ''.join(random.choice(letters) for i in range(10))
-    #     print(seed)
-    #     images = ["https://picsum.photos/seed/" + seed + "/400/600"] + images
+    if len(images) == 0 or gen_cover == "true" :
+         letters = string.ascii_lowercase
+         seed = ''.join(random.choice(letters) for i in range(10))
+         print(seed)
+         images = ["https://picsum.photos/seed/" + seed + "/400/600"] + images
     uploaded_images = {}
     for image in images:
         media_id = ''
@@ -336,7 +336,6 @@ def upload_media_news(post_path):
     RESULT = render_markdown(content)
     link = os.path.basename(post_path).replace('.md', '')
     digest = fetch_attr(content, 'subtitle').strip().strip('"').strip('\'')
-    CONTENT_SOURCE_URL = 'https://catcoding.me/p/{}'.format(link)
 
     _, filename = os.path.split(post_path)
     print(filename)
@@ -350,7 +349,7 @@ def upload_media_news(post_path):
                 "digest": digest,
                 "show_cover_pic": 1,
                 "content": RESULT,
-                "content_source_url": CONTENT_SOURCE_URL,
+                "content_source_url": '',
                 "need_open_comment": 1,
             }
             # 若新增的是多图文素材，则此处应有几段articles结构，最多8段
