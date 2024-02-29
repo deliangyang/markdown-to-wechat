@@ -365,6 +365,7 @@ def upload_media_news(post_path):
 
     postUrl = "https://api.weixin.qq.com/cgi-bin/draft/add?access_token=%s" % token
     r = requests.post(postUrl, data=datas, headers=headers)
+    print(r.text)
     resp = json.loads(r.text)
     print(resp)
     media_id = resp['media_id']
