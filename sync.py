@@ -209,6 +209,8 @@ def replace_para(content):
                 line = line.replace("<p>", gen_css("blockquote"))
             else:
                 line = line.replace("<p>", gen_css("para"))
+        if line.startswith('<blockquote>'):
+            line = line.replace('<blockquote>', '<blockquote style="border-left:5px solid #DBDBDB; padding-left:25px;margin-left:10px;">')
         pre = line
         res.append(line)
     return "\n".join(res)
