@@ -278,7 +278,7 @@ def fix_image(content):
 def format_fix(content):
     content = content.replace("<ul>\n<li>", "<ul><li>")
     content = content.replace("</li>\n</ul>", "</li></ul>")
-    content = content.replace("<ol>\n<li>", "<ol><li>")
+    content = content.replace("<ol>\n<li>", "<ol style=\"margin-left: 20px;\"><li>")
     content = content.replace("</li>\n</ol>", "</li></ol>")
     content = content.replace("background: #272822", gen_css("code"))
     contenxt_x = ''
