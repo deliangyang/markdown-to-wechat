@@ -295,6 +295,7 @@ def format_fix(content):
 
 
 def css_beautify(content):
+    content = fix_strong(content)
     content = replace_para(content)
     content = replace_header(content)
     content = replace_links(content)
@@ -305,12 +306,10 @@ def css_beautify(content):
     return content
 
 
-def fix_strong(content):
-    content = content.replace("<strong>", '<strong style="%s">' % gen_css("strong"))
-    return content
+reg_strong = re.compile(r'<b>([^<]+)</b>')
 
-def fix_line_tag_code(content):
-    content = content.replace("<code>", '<code style="%s">' % gen_css("line_code"))
+def fix_strong(content):
+    content = reg_strong.sub(r'<b style="%s">「\1 」</b>' % gen_css("strong"), content)
     return content
 
 def fix_escape_tag_php(content):
