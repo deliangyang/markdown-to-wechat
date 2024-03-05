@@ -88,7 +88,7 @@ def cache_get(key):
 
 def file_digest(file_path):
     """
-    计算文件的md5值
+    计算文件的 md5 值
     """
     md5 = hashlib.md5()
     with open(file_path, 'rb') as f:
@@ -131,8 +131,8 @@ def upload_image_from_path(image_path):
 def upload_image(img_url):
     """
     * 上传临时素菜
-    * 1、临时素材media_id是可复用的。
-    * 2、媒体文件在微信后台保存时间为3天，即3天后media_id失效。
+    * 1、临时素材 media_id 是可复用的。
+    * 2、媒体文件在微信后台保存时间为 3 天，即 3 天后 media_id 失效。
     * 3、上传临时素材的格式、大小限制与公众平台官网一致。
     """
     resource = urllib.request.urlopen(img_url)
@@ -158,7 +158,7 @@ def get_images_from_markdown(content):
 
 def fetch_attr(content, key):
     """
-    从markdown文件中提取属性
+    从 markdown 文件中提取属性
     """
     lines = content.split('\n')
     for line in lines:
@@ -301,8 +301,21 @@ def css_beautify(content):
     content = format_fix(content)
     content = fix_image(content)
     content = gen_css("header") + content + "</section>"
+    content = fix_escape_tag_php(content)
     return content
 
+
+def fix_strong(content):
+    content = content.replace("<strong>", '<strong style="%s">' % gen_css("strong"))
+    return content
+
+def fix_line_tag_code(content):
+    content = content.replace("<code>", '<code style="%s">' % gen_css("line_code"))
+    return content
+
+def fix_escape_tag_php(content):
+    content = content.replace("&lt;?php", '&#60;&quest;php')
+    return content
 
 def upload_media_news(post_path):
     """
@@ -354,7 +367,7 @@ def upload_media_news(post_path):
                 "content_source_url": '',
                 "need_open_comment": 1,
             }
-            # 若新增的是多图文素材，则此处应有几段articles结构，最多8段
+            # 若新增的是多图文素材，则此处应有几段 articles 结构，最多 8 段
         ]
     }
     fp = open('./result.html', 'w')
@@ -405,4 +418,4 @@ if __name__ == '__main__':
     #     print(string_date)
         
     end_time = time.time()  # 结束时间
-    print("程序耗时%f秒." % (end_time - start_time))
+    print("程序耗时%f秒。" % (end_time - start_time))
