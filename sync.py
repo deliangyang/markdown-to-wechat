@@ -16,10 +16,8 @@ import sys
 import time
 import urllib
 import urllib.request
-from calendar import c
 from datetime import date, datetime, timedelta
-from pathlib import Path
-from weakref import ref
+import argparse
 
 import markdown
 import requests
@@ -316,7 +314,7 @@ def fix_escape_tag_php(content):
     content = content.replace("&lt;?php", '&#60;&quest;php')
     return content
 
-def upload_media_news(post_path):
+def upload_media_news(post_path, only_render=False):
     """
     上传到微信公众号素材
     """
@@ -372,6 +370,10 @@ def upload_media_news(post_path):
     fp = open('./result.html', 'w')
     fp.write(RESULT)
     fp.close()
+
+    if only_render:
+        return
+
     client = NewClient()
     token = client.get_access_token()
     headers = {'Content-type': 'text/plain; charset=utf-8'}
@@ -387,7 +389,7 @@ def upload_media_news(post_path):
     return resp
 
 
-def run(path_str):
+def run(path_str, only_render=False):
     #string_date = "2023-03-13"
     # print(string_date)
     content = open(path_str, 'r').read()
@@ -396,7 +398,7 @@ def run(path_str):
         print("{} has been processed".format(path_str))
         # return
     print(path_str)
-    news_json = upload_media_news(path_str)
+    news_json = upload_media_news(path_str, only_render)
     print(news_json)
     print('successful')
 
@@ -406,11 +408,20 @@ def daterange(start_date, end_date):
         yield start_date + timedelta(n)
 
 
+def args():
+    parser = argparse.ArgumentParser(description='Sync markdown to wechat')
+    parser.add_argument('path', type=str, help='path of markdown file')
+    parser.add_argument('--only-render', action='store_true',
+                        help='only render markdown')
+    return parser.parse_args()
+
+
 if __name__ == '__main__':
+    args = args()
     print("begin sync to wechat")
     init_cache()
     start_time = time.time()  # 开始时间
-    run(sys.argv[1])
+    run(args.path, args.only_render)
     # for x in daterange(datetime.now() - timedelta(days=7), datetime.now() + timedelta(days=2)):
     #     print("start time: {}".format(x.strftime("%m/%d/%Y, %H:%M:%S")))
     #     string_date = x.strftime('%Y-%m-%d')
