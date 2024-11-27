@@ -208,7 +208,7 @@ def replace_para(content):
             else:
                 line = line.replace("<p>", gen_css("para"))
         if line.startswith('<blockquote>'):
-            line = line.replace('<blockquote>', '<blockquote style="border-left:5px solid #DBDBDB; padding-left:25px;margin-left:10px;">')
+            line = line.replace('<blockquote>', '<blockquote style="border-left:7px solid #DBDBDB; padding-left:5px;margin-left:10px;">')
         pre = line
         res.append(line)
     return "\n".join(res)
@@ -274,10 +274,12 @@ def fix_image(content):
 
 
 def format_fix(content):
-    content = content.replace("<ul>\n<li>", "<ul><li>")
+    content = content.replace("<ul>\n<li>", '<ul style="margin-left:1em"><li>')
     content = content.replace("</li>\n</ul>", "</li></ul>")
     content = content.replace("<ol>\n<li>", "<ol style=\"margin-left: 20px;\"><li>")
     content = content.replace("</li>\n</ol>", "</li></ol>")
+    content = content.replace('</li>\n', '</li>')
+    # content = content.replace('<li>', '<li style="display:block;">')
     content = content.replace("background: #272822", gen_css("code"))
     contenxt_x = ''
     for line in content.split('\n'):
@@ -330,20 +332,23 @@ def upload_media_news(post_path, only_render=False):
          print(seed)
          images = ["https://picsum.photos/seed/" + seed + "/400/600"] + images
     uploaded_images = {}
-    for image in images:
-        media_id = ''
-        media_url = ''
-        if image.startswith("http"):
-            media_id, media_url = upload_image(image)
-        else:
-            _path = os.path.dirname(post_path) + '/'
-            media_id, media_url = upload_image_from_path(_path + image)
-        if media_id != None:
-            uploaded_images[image] = [media_id, media_url]
 
-    content = update_images_urls(content, uploaded_images)
+    THUMB_MEDIA_ID = ''
+    if not only_render:
+        for image in images:
+            media_id = ''
+            media_url = ''
+            if image.startswith("http"):
+                media_id, media_url = upload_image(image)
+            else:
+                _path = os.path.dirname(post_path) + '/'
+                media_id, media_url = upload_image_from_path(_path + image)
+            if media_id != None:
+                uploaded_images[image] = [media_id, media_url]
+
+        content = update_images_urls(content, uploaded_images)
     
-    THUMB_MEDIA_ID = (len(images) > 0 and uploaded_images[images[0]][0]) or ''
+        THUMB_MEDIA_ID = (len(images) > 0 and uploaded_images[images[0]][0]) or ''
     AUTHOR = os.getenv('AUTHOR')
     RESULT = render_markdown(content)
     link = os.path.basename(post_path).replace('.md', '')
