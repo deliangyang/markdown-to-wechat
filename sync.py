@@ -25,6 +25,7 @@ from dotenv import load_dotenv
 from markdown.extensions import codehilite
 from pyquery import PyQuery
 from werobot import WeRoBot
+from markdown.extensions import Extension
 
 load_dotenv()  # take environment variables from .env.
 
@@ -32,6 +33,43 @@ CACHE = {}
 
 CACHE_STORE = os.getenv('CACHE_STORE')
 POST_DIR = os.getenv('POST_DIR')
+re_html_tag = re.compile(r'\\\<([^>]+)>')
+
+class BlockQuoteExtension(Extension):
+    def extendMarkdown(self, md):
+        md.preprocessors.register(BlockQuotePreprocessor(md), 'blockquote', 27)
+
+class BlockQuotePreprocessor:
+    def __init__(self, md):
+        self.md = md
+
+    def __get_style(self, ident):
+        return 'border-left:7px solid #DBDBDB; padding-left:5px;margin-left:%spx;' % int(ident * 15)
+
+    def run(self, lines):
+        new_lines = []
+        blockquotes = []
+        lines_len = len(lines)
+        ident = 0
+        for (idx, line) in enumerate(lines):
+            lstriped_line = str(line).lstrip()
+            ident = len(line) - len(lstriped_line)
+            if lstriped_line.startswith('>'):
+                blockquotes.append(re_html_tag.sub(r'&lt;\1&gt;', lstriped_line[1:]) + '</br>')
+                if idx + 1 < lines_len:
+                    next_lstriped_line = str(lines[idx + 1]).lstrip()
+                    if not next_lstriped_line.startswith('>'):
+                        new_lines.append('<blockquote style="%s">' % self.__get_style(ident))
+                        new_lines.extend(blockquotes)
+                        new_lines.append('</blockquote>')
+                        blockquotes = []
+            else:
+                new_lines.append(line)
+        if len(blockquotes) > 0:
+            new_lines.append('<blockquote style="%s">' % self.__get_style(ident))
+            new_lines.extend(blockquotes)
+            new_lines.append('</blockquote>')
+        return new_lines
 
 
 def dump_cache():
@@ -171,6 +209,8 @@ def render_markdown(content):
         'markdown.extensions.tables',
         'markdown.extensions.toc',
         'markdown.extensions.sane_lists',
+        'markdown.extensions.smarty',
+        BlockQuoteExtension(),
         codehilite.makeExtension(
             guess_lang=False,
             noclasses=True,
