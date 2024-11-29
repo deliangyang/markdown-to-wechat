@@ -58,7 +58,8 @@ class BlockQuotePreprocessor:
                 blockquotes.append('<i style="display:block;font-size:14px;font-weight:400;">%s</i>' % re_html_tag.sub(r'&lt;\1&gt;', lstriped_line[1:]))
                 if idx + 1 < lines_len:
                     next_lstriped_line = str(lines[idx + 1]).lstrip()
-                    if not next_lstriped_line.startswith('>'):
+                    next_ident = len(lines[idx + 1]) - len(next_lstriped_line)
+                    if not next_lstriped_line.startswith('>') or next_ident != ident:
                         new_lines.append('<blockquote style="%s">' % self.__get_style(ident))
                         new_lines.extend(blockquotes)
                         new_lines.append('</blockquote>')
