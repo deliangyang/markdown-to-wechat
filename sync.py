@@ -44,7 +44,7 @@ class BlockQuotePreprocessor:
         self.md = md
 
     def __get_style(self, ident):
-        return 'border-left:7px solid #DBDBDB; padding-left:5px;margin-left:%spx;' % int(ident * 15)
+        return 'font-size:14px;text-align:left;word-spacing: 0px; word-break: break-word;border-left:7px solid #DBDBDB; padding-left:5px;margin-left:%spx;' % int(ident * 8)
 
     def run(self, lines):
         new_lines = []
@@ -55,7 +55,7 @@ class BlockQuotePreprocessor:
             lstriped_line = str(line).lstrip()
             ident = len(line) - len(lstriped_line)
             if lstriped_line.startswith('>'):
-                blockquotes.append(re_html_tag.sub(r'&lt;\1&gt;', lstriped_line[1:]) + '</br>')
+                blockquotes.append('<i style="display:block;font-size:14px;font-weight:400;">%s</i>' % re_html_tag.sub(r'&lt;\1&gt;', lstriped_line[1:]))
                 if idx + 1 < lines_len:
                     next_lstriped_line = str(lines[idx + 1]).lstrip()
                     if not next_lstriped_line.startswith('>'):
@@ -248,7 +248,7 @@ def replace_para(content):
             else:
                 line = line.replace("<p>", gen_css("para"))
         if line.startswith('<blockquote>'):
-            line = line.replace('<blockquote>', '<blockquote style="border-left:7px solid #DBDBDB; padding-left:5px;margin-left:10px;">')
+            line = line.replace('<blockquote>', '<blockquote style="word-spacing: 0px; word-break: break-word;font-size:14px;text-align:left;border-left:7px solid #DBDBDB; padding-left:5px;margin-left:10px;">')
         pre = line
         res.append(line)
     return "\n".join(res)
