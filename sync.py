@@ -27,6 +27,8 @@ from pyquery import PyQuery
 from werobot import WeRoBot
 from markdown.extensions import Extension
 
+re_title = re.compile(r'^#\s*(.*)')
+
 load_dotenv()  # take environment variables from .env.
 
 CACHE = {}
@@ -391,17 +393,26 @@ def upload_media_news(post_path, only_render=False):
     
         THUMB_MEDIA_ID = (len(images) > 0 and uploaded_images[images[0]][0]) or ''
     AUTHOR = os.getenv('AUTHOR')
-    RESULT = render_markdown(content)
-    link = os.path.basename(post_path).replace('.md', '')
-    digest = fetch_attr(content, 'subtitle').strip().strip('"').strip('\'')
 
     _, filename = os.path.split(post_path)
+    title = filename.replace('.md', '')
+
+    title_match = re_title.match(content)
+    if title_match:
+        title = title_match.group(1)
+
+    content = content.replace(title_match.group(0), '')
+
+    RESULT = render_markdown(content)
+    # link = os.path.basename(post_path).replace('.md', '')
+    digest = fetch_attr(content, 'subtitle').strip().strip('"').strip('\'')
+
     print(filename)
     articles = {
         'articles':
         [
             {
-                "title": filename.replace('.md', ''),
+                "title": title,
                 "thumb_media_id": THUMB_MEDIA_ID,
                 "author": AUTHOR,
                 "digest": digest,
