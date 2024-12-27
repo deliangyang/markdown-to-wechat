@@ -364,12 +364,10 @@ def upload_media_news(post_path, only_render=False):
 
     _, filename = os.path.split(post_path)
     title = filename.replace('.md', '')
-
     title_match = re_title.match(content)
     if title_match:
         title = title_match.group(1)
-
-    content = content.replace(title_match.group(0), '')
+        content = content.replace(title_match.group(0), '')
 
     RESULT = render_markdown(content)
     # link = os.path.basename(post_path).replace('.md', '')
