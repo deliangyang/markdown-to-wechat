@@ -13,7 +13,6 @@ class CarbonNowPreprocessor:
     def run(self, lines):
         new_lines = []
         carbon_now = []
-        print('x'*100, lines)
         for line in lines:
             if len(carbon_now) == 0 and line.strip().startswith('```'):
                 carbon_now.append(line)
@@ -36,5 +35,4 @@ class CarbonNowPreprocessor:
                     carbon_now.append(line)
                 else:
                     new_lines.append(line)
-        print('-'*20, new_lines)
         return new_lines

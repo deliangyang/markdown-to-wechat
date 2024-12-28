@@ -15,7 +15,6 @@ class MermaidToImagePreprocessor:
     def run(self, lines):
         new_lines = []
         mermaid = []
-        print(lines)
         for line in lines:
             if line.strip().startswith('```mermaid'):
                 mermaid.append(line)
@@ -26,7 +25,6 @@ class MermaidToImagePreprocessor:
                     with NamedTemporaryFile(delete=False, mode='w') as f:
                         f.write('\n'.join(mermaid))
                         f.close()
-                        print('\n'.join(mermaid))
                         cmd = 'mmdc -e png -o /tmp/mermaid.png -i %s' % f.name
                         print(cmd)
                         os.system(cmd)
@@ -38,5 +36,4 @@ class MermaidToImagePreprocessor:
                     mermaid.append(line)
                 else:
                     new_lines.append(line)
-        print('-'*20, new_lines)
         return new_lines

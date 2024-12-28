@@ -39,6 +39,7 @@ CACHE_STORE = os.getenv('CACHE_STORE')
 POST_DIR = os.getenv('POST_DIR')
 re_html_tag = re.compile(r'\\\<([^>]+)>')
 
+
 def dump_cache():
     fp = open(CACHE_STORE, "wb")
     pickle.dump(CACHE, fp)
@@ -170,7 +171,7 @@ def fetch_attr(content, key):
     return ""
 
 
-def render_markdown(content):
+def render_markdown(content, to_image=False):
     exts = [
         'markdown.extensions.extra',
         'markdown.extensions.tables',
@@ -178,20 +179,16 @@ def render_markdown(content):
         'markdown.extensions.sane_lists',
         'markdown.extensions.smarty',
         BlockQuoteExtension(),
-        # MermaidToImageExtension(),
-        # CarbonNowExtension(),
-        codehilite.makeExtension(
-            guess_lang=False,
-            noclasses=True,
-            pygments_style='monokai'
-        ), ]
-    # items = content.split("---\n")
-    # post = ''
-    # if len(items) == 2:
-    #     post = ''.join(items[2:])
-    # else:
-    #     post = content
-    
+    ]
+    if to_image:
+        exts.append(MermaidToImageExtension())
+        exts.append(CarbonNowExtension())
+    exts.append(codehilite.makeExtension(
+        guess_lang=False,
+        noclasses=True,
+        pygments_style='monokai'
+    ))
+
     html = markdown.markdown(content, extensions=exts)
     print('-' * 100)
     print(html)
@@ -204,7 +201,7 @@ def update_images_urls(content, uploaded_images):
     for image, meta in uploaded_images.items():
         orig = "({})".format(image)
         new = "({})".format(meta[1])
-        #print("{} -> {}".format(orig, new))
+        # print("{} -> {}".format(orig, new))
         content = content.replace(orig, new)
     return content
 
@@ -219,7 +216,8 @@ def replace_para(content):
             else:
                 line = line.replace("<p>", gen_css("para"))
         if line.startswith('<blockquote>'):
-            line = line.replace('<blockquote>', '<blockquote style="word-spacing: 0px; word-break: break-word;font-size:14px;text-align:left;border-left:7px solid #DBDBDB; padding-left:5px;margin-left:10px;">')
+            line = line.replace(
+                '<blockquote>', '<blockquote style="word-spacing: 0px; word-break: break-word;font-size:14px;text-align:left;border-left:7px solid #DBDBDB; padding-left:5px;margin-left:10px;">')
         pre = line
         res.append(line)
     return "\n".join(res)
@@ -287,7 +285,8 @@ def fix_image(content):
 def format_fix(content):
     content = content.replace("<ul>\n<li>", '<ul style="margin-left:1em"><li>')
     content = content.replace("</li>\n</ul>", "</li></ul>")
-    content = content.replace("<ol>\n<li>", "<ol style=\"margin-left: 20px;\"><li>")
+    content = content.replace(
+        "<ol>\n<li>", "<ol style=\"margin-left: 20px;\"><li>")
     content = content.replace("</li>\n</ol>", "</li></ol>")
     content = content.replace('</li>\n', '</li>')
     # content = content.replace('<li>', '<li style="display:block;">')
@@ -295,7 +294,8 @@ def format_fix(content):
     contenxt_x = ''
     for line in content.split('\n'):
         if line.find('<pre') < 0 and line.find('<code>') >= 0:
-            contenxt_x += re.sub(r'<code>([^<]+)</code>', r'<code style="%s">\1</code>' % gen_css("line_code"), line) + '\n'
+            contenxt_x += re.sub(r'<code>([^<]+)</code>',
+                                 r'<code style="%s">\1</code>' % gen_css("line_code"), line) + '\n'
         else:
             contenxt_x += line + '\n'
     content = contenxt_x
@@ -319,15 +319,19 @@ def css_beautify(content):
 
 reg_strong = re.compile(r'<b>([^<]+)</b>')
 
+
 def fix_strong(content):
-    content = reg_strong.sub(r'<b style="%s">「\1 」</b>' % gen_css("strong"), content)
+    content = reg_strong.sub(r'<b style="%s">「\1 」</b>' %
+                             gen_css("strong"), content)
     return content
+
 
 def fix_escape_tag_php(content):
     content = content.replace("&lt;?php", '&#60;&quest;php')
     return content
 
-def upload_media_news(post_path, only_render=False):
+
+def upload_media_news(post_path, only_render=False, to_image=False):
     """
     上传到微信公众号素材
     """
@@ -337,11 +341,11 @@ def upload_media_news(post_path, only_render=False):
     images = get_images_from_markdown(content)
     print(images)
     print(TITLE)
-    if len(images) == 0 or gen_cover == "true" :
-         letters = string.ascii_lowercase
-         seed = ''.join(random.choice(letters) for i in range(10))
-         print(seed)
-         images = ["https://picsum.photos/seed/" + seed + "/400/600"] + images
+    if len(images) == 0 or gen_cover == "true":
+        letters = string.ascii_lowercase
+        seed = ''.join(random.choice(letters) for i in range(10))
+        print(seed)
+        images = ["https://picsum.photos/seed/" + seed + "/400/600"] + images
     uploaded_images = {}
 
     THUMB_MEDIA_ID = ''
@@ -358,8 +362,9 @@ def upload_media_news(post_path, only_render=False):
                 uploaded_images[image] = [media_id, media_url]
 
         content = update_images_urls(content, uploaded_images)
-    
-        THUMB_MEDIA_ID = (len(images) > 0 and uploaded_images[images[0]][0]) or ''
+
+        THUMB_MEDIA_ID = (
+            len(images) > 0 and uploaded_images[images[0]][0]) or ''
     AUTHOR = os.getenv('AUTHOR')
 
     _, filename = os.path.split(post_path)
@@ -369,7 +374,7 @@ def upload_media_news(post_path, only_render=False):
         title = title_match.group(1)
         content = content.replace(title_match.group(0), '')
 
-    RESULT = render_markdown(content)
+    RESULT = render_markdown(content, to_image)
     # link = os.path.basename(post_path).replace('.md', '')
     digest = fetch_attr(content, 'subtitle').strip().strip('"').strip('\'')
 
@@ -412,8 +417,8 @@ def upload_media_news(post_path, only_render=False):
     return resp
 
 
-def run(path_str, only_render=False):
-    #string_date = "2023-03-13"
+def run(path_str, only_render=False, to_image=False):
+    # string_date = "2023-03-13"
     # print(string_date)
     content = open(path_str, 'r').read()
     date = fetch_attr(content, 'date').strip()
@@ -421,7 +426,7 @@ def run(path_str, only_render=False):
         print("{} has been processed".format(path_str))
         # return
     print('-' * 20, path_str, '-' * 20)
-    news_json = upload_media_news(path_str, only_render)
+    news_json = upload_media_news(path_str, only_render, to_image)
     print(news_json)
     print('successful')
 
@@ -436,6 +441,8 @@ def args():
     parser.add_argument('path', type=str, help='path of markdown file')
     parser.add_argument('--only-render', action='store_true',
                         help='only render markdown')
+    parser.add_argument('--to-image', action='store_true',
+                        help='convert mermaid to image')
     return parser.parse_args()
 
 
@@ -444,11 +451,11 @@ if __name__ == '__main__':
     print("begin sync to wechat")
     init_cache()
     start_time = time.time()  # 开始时间
-    run(args.path, args.only_render)
+    run(args.path, args.only_render, args.to_image)
     # for x in daterange(datetime.now() - timedelta(days=7), datetime.now() + timedelta(days=2)):
     #     print("start time: {}".format(x.strftime("%m/%d/%Y, %H:%M:%S")))
     #     string_date = x.strftime('%Y-%m-%d')
     #     print(string_date)
-        
+
     end_time = time.time()  # 结束时间
     print("程序耗时%f秒。" % (end_time - start_time))
