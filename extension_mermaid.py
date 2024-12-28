@@ -32,7 +32,7 @@ class MermaidToImagePreprocessor:
                         print(cmd)
                         os.system(cmd)
                         url = upload_file(output)
-                        new_lines.append('![%s](%s)' % (output, url))
+                        new_lines.append('![%s](%s)' % ('mermaid', url))
                         os.unlink(output)
                     mermaid = []
                 else:
