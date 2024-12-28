@@ -1,6 +1,8 @@
 from markdown.extensions import Extension
 import os
 from tempfile import NamedTemporaryFile
+from upload_file import upload_file
+import time
 
 class CarbonNowExtension(Extension):
     def extendMarkdown(self, md):
@@ -24,9 +26,13 @@ class CarbonNowPreprocessor:
                         f.write('\n'.join(carbon_now))
                         f.close()
                         print('\n'.join(carbon_now))
-                        cmd = 'carbon-now %s --save-to %s' % (f.name, '/tmp/carbon.png')
+                        output = '/tmp/%s.png' % str(time.time()).replace('.', '')
+                        cmd = 'carbon-now %s --save-to %s' % (f.name, output)
                         print(cmd)
                         os.system(cmd)
+                        url = upload_file(output)
+                        new_lines.append('![%s](%s)' % (output, url))
+                        os.unlink(output)
                     carbon_now = []
                 else:
                     new_lines.append(line)

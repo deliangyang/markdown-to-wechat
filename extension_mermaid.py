@@ -1,6 +1,8 @@
 from markdown.extensions import Extension
 import os
 from tempfile import NamedTemporaryFile
+from upload_file import upload_file
+import time
 
 
 class MermaidToImageExtension(Extension):
@@ -25,9 +27,13 @@ class MermaidToImagePreprocessor:
                     with NamedTemporaryFile(delete=False, mode='w') as f:
                         f.write('\n'.join(mermaid))
                         f.close()
-                        cmd = 'mmdc -e png -o /tmp/mermaid.png -i %s' % f.name
+                        output = '/tmp/%s.png' % str(time.time()).replace('.', '')
+                        cmd = 'mmdc -o %s -i %s' % (output, f.name)
                         print(cmd)
                         os.system(cmd)
+                        url = upload_file(output)
+                        new_lines.append('![%s](%s)' % (output, url))
+                        os.unlink(output)
                     mermaid = []
                 else:
                     new_lines.append(line)
