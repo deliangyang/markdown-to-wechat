@@ -436,18 +436,18 @@ def daterange(start_date, end_date):
         yield start_date + timedelta(n)
 
 
-def args():
+def usage():
     parser = argparse.ArgumentParser(description='Sync markdown to wechat')
     parser.add_argument('path', type=str, help='path of markdown file')
-    parser.add_argument('--only-render', action='store_true',
+    parser.add_argument('-r', '--only-render', action='store_true',
                         help='only render markdown')
-    parser.add_argument('--to-image', action='store_true',
+    parser.add_argument('-c', '--to-image', action='store_true',
                         help='convert mermaid to image')
     return parser.parse_args()
 
 
 if __name__ == '__main__':
-    args = args()
+    args = usage()
     print("begin sync to wechat")
     init_cache()
     start_time = time.time()  # 开始时间

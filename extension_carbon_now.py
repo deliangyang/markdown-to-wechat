@@ -27,14 +27,15 @@ class CarbonNowPreprocessor:
                         f.close()
                         print('\n'.join(carbon_now))
                         output = '%s' % str(time.time()).replace('.', '')
-                        cmd = 'carbon-now %s -h -l /tmp -t %s' % (f.name, output)
+                        cmd = 'carbon-now %s --config .carbon-now.json --skip-display --save-to /tmp --save-as %s' % (f.name, output)
                         print(cmd)
                         os.system(cmd)
                         tmp_name = '/tmp/%s.png' % output
                         url = upload_file(tmp_name)
                         new_lines.append('![%s](%s)' % ('image', url))
                         os.unlink(tmp_name)
-                        os.unlink('carbon.png')
+                        if os.path.exists('carbon.png'):
+                            os.unlink('carbon.png')
                     carbon_now = []
                 else:
                     new_lines.append(line)
