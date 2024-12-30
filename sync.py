@@ -32,6 +32,7 @@ from extension_carbon_now import CarbonNowExtension
 re_title = re.compile(r'^#\s*(.*)')
 
 load_dotenv()  # take environment variables from .env.
+image_upload_endpoint = os.getenv('IMAGE_UPLOAD_EDPOINT')
 
 CACHE = {}
 
@@ -158,6 +159,14 @@ def get_images_from_markdown(content):
             image = line.split('(')[1].split(')')[0].strip()
             images.append(image)
     return images
+
+re_upload_images = re.compile(r'src="(%s[^"]+)"' % image_upload_endpoint)
+
+def get_upload_images(content)-> list[str]:
+    matches = re_upload_images.findall(content)
+    if matches:
+        return list(map(lambda x: x, matches))
+    return []
 
 
 def fetch_attr(content, key):
@@ -374,9 +383,15 @@ def upload_media_news(post_path, only_render=False, to_image=False):
         title = title_match.group(1)
         content = content.replace(title_match.group(0), '')
 
-    RESULT = render_markdown(content, to_image)
+    markdowned_content = render_markdown(content, to_image)
+    # upload extra images
+    extra_iamges = list(filter(lambda x: x.startswith(image_upload_endpoint), get_upload_images(markdowned_content)))
+    for image in extra_iamges:
+        media_id, media_url = upload_image(image)
+        uploaded_images[image] = [media_id, media_url]
+        markdowned_content = markdowned_content.replace(image, media_url)
     # link = os.path.basename(post_path).replace('.md', '')
-    digest = fetch_attr(content, 'subtitle').strip().strip('"').strip('\'')
+    digest = fetch_attr(markdowned_content, 'subtitle').strip().strip('"').strip('\'')
 
     print(filename)
     articles = {
@@ -388,7 +403,7 @@ def upload_media_news(post_path, only_render=False, to_image=False):
                 "author": AUTHOR,
                 "digest": digest,
                 "show_cover_pic": 1,
-                "content": RESULT,
+                "content": markdowned_content,
                 "content_source_url": '',
                 "need_open_comment": 1,
             }
@@ -396,7 +411,7 @@ def upload_media_news(post_path, only_render=False, to_image=False):
         ]
     }
     fp = open('./result.html', 'w')
-    fp.write(RESULT)
+    fp.write(markdowned_content)
     fp.close()
 
     if only_render:
