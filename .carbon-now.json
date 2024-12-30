@@ -17,6 +17,7 @@
     "si": false,
     "wm": false,
     "es": "2x",
-    "type": "png"
+    "type": "png",
+    "titleBar": ""
   }
 }

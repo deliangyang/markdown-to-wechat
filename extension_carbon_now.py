@@ -3,6 +3,7 @@ import os
 from tempfile import NamedTemporaryFile
 from upload_file import upload_file
 import time
+import subprocess
 
 class CarbonNowExtension(Extension):
     def extendMarkdown(self, md):
@@ -27,9 +28,11 @@ class CarbonNowPreprocessor:
                         f.close()
                         print('\n'.join(carbon_now))
                         output = '%s' % str(time.time()).replace('.', '')
-                        cmd = 'carbon-now %s --config .carbon-now.json --skip-display --save-to /tmp --save-as %s' % (f.name, output)
+                        cmd = 'carbon-now %s --config .carbon-now.json --engine chromium --skip-display --save-to /tmp --save-as %s' % (f.name, output)
                         print(cmd)
-                        os.system(cmd)
+                        result = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE)
+                        if result.returncode != 0:
+                            raise Exception('Failed to run carbon-now ' + str(result.stdout))
                         tmp_name = '/tmp/%s.png' % output
                         url = upload_file(tmp_name)
                         new_lines.append('![%s](%s)' % ('image', url))
