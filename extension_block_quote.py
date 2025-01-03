@@ -1,5 +1,7 @@
 from markdown.extensions import Extension
+import re
 
+re_html_tag = re.compile(r'\\\<([^>]+)>')
 
 class BlockQuoteExtension(Extension):
     def extendMarkdown(self, md):

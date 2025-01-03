@@ -11,4 +11,7 @@ def upload_file(file_path):
     with open(file_path, 'rb') as f:
         files = {'file': f}
         r = requests.post(image_upload_endpoint, files=files)
-        return r.json()['filename']
+        try:
+            return r.json()['filename']
+        except:
+            raise Exception('Failed to upload file ' + str(r.content))

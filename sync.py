@@ -38,7 +38,6 @@ CACHE = {}
 
 CACHE_STORE = os.getenv('CACHE_STORE')
 POST_DIR = os.getenv('POST_DIR')
-re_html_tag = re.compile(r'\\\<([^>]+)>')
 
 
 def dump_cache():
@@ -386,12 +385,13 @@ def upload_media_news(post_path, only_render=False, args={}):
 
     markdowned_content = render_markdown(content, args)
     # upload extra images
-    extra_iamges = list(filter(lambda x: x.startswith(image_upload_endpoint), get_upload_images(markdowned_content)))
-    for image in extra_iamges:
-        media_id, media_url = upload_image(image)
-        uploaded_images[image] = [media_id, media_url]
-        markdowned_content = markdowned_content.replace(image, media_url)
-    # link = os.path.basename(post_path).replace('.md', '')
+    if not args.only_render:
+        extra_iamges = list(filter(lambda x: x.startswith(image_upload_endpoint), get_upload_images(markdowned_content)))
+        for image in extra_iamges:
+            media_id, media_url = upload_image(image)
+            uploaded_images[image] = [media_id, media_url]
+            markdowned_content = markdowned_content.replace(image, media_url)
+        # link = os.path.basename(post_path).replace('.md', '')
     digest = fetch_attr(markdowned_content, 'subtitle').strip().strip('"').strip('\'')
 
     print(filename)
