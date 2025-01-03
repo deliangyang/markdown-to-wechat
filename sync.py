@@ -180,7 +180,7 @@ def fetch_attr(content, key):
     return ""
 
 
-def render_markdown(content, to_image=False):
+def render_markdown(content, args={}):
     exts = [
         'markdown.extensions.extra',
         'markdown.extensions.tables',
@@ -189,8 +189,9 @@ def render_markdown(content, to_image=False):
         'markdown.extensions.smarty',
         BlockQuoteExtension(),
     ]
-    if to_image:
+    if args.mermaid:
         exts.append(MermaidToImageExtension())
+    if args.code:
         exts.append(CarbonNowExtension())
     exts.append(codehilite.makeExtension(
         guess_lang=False,
@@ -340,7 +341,7 @@ def fix_escape_tag_php(content):
     return content
 
 
-def upload_media_news(post_path, only_render=False, to_image=False):
+def upload_media_news(post_path, only_render=False, args={}):
     """
     上传到微信公众号素材
     """
@@ -383,7 +384,7 @@ def upload_media_news(post_path, only_render=False, to_image=False):
         title = title_match.group(1)
         content = content.replace(title_match.group(0), '')
 
-    markdowned_content = render_markdown(content, to_image)
+    markdowned_content = render_markdown(content, args)
     # upload extra images
     extra_iamges = list(filter(lambda x: x.startswith(image_upload_endpoint), get_upload_images(markdowned_content)))
     for image in extra_iamges:
@@ -432,7 +433,7 @@ def upload_media_news(post_path, only_render=False, to_image=False):
     return resp
 
 
-def run(path_str, only_render=False, to_image=False):
+def run(path_str, only_render=False, args={}):
     # string_date = "2023-03-13"
     # print(string_date)
     content = open(path_str, 'r').read()
@@ -441,7 +442,7 @@ def run(path_str, only_render=False, to_image=False):
         print("{} has been processed".format(path_str))
         # return
     print('-' * 20, path_str, '-' * 20)
-    news_json = upload_media_news(path_str, only_render, to_image)
+    news_json = upload_media_news(path_str, only_render, args)
     print(news_json)
     print('successful')
 
@@ -456,8 +457,10 @@ def usage():
     parser.add_argument('path', type=str, help='path of markdown file')
     parser.add_argument('-r', '--only-render', action='store_true',
                         help='only render markdown')
-    parser.add_argument('-c', '--to-image', action='store_true',
+    parser.add_argument('-m', '--mermaid', action='store_true',
                         help='convert mermaid to image')
+    parser.add_argument('-c', '--code', action='store_true',
+                        help='convert code to image')
     return parser.parse_args()
 
 
@@ -466,7 +469,7 @@ if __name__ == '__main__':
     print("begin sync to wechat")
     init_cache()
     start_time = time.time()  # 开始时间
-    run(args.path, args.only_render, args.to_image)
+    run(args.path, args.only_render, args)
     # for x in daterange(datetime.now() - timedelta(days=7), datetime.now() + timedelta(days=2)):
     #     print("start time: {}".format(x.strftime("%m/%d/%Y, %H:%M:%S")))
     #     string_date = x.strftime('%Y-%m-%d')
