@@ -39,6 +39,9 @@ CACHE = {}
 CACHE_STORE = os.getenv('CACHE_STORE')
 POST_DIR = os.getenv('POST_DIR')
 
+def get_script_dir():
+    return os.path.dirname(os.path.abspath(__file__))
+
 
 def dump_cache():
     fp = open(CACHE_STORE, "wb")
@@ -233,7 +236,7 @@ def replace_para(content):
 
 
 def gen_css(path, *args):
-    tmpl = open("./assets/{}.tmpl".format(path), "r").read()
+    tmpl = open("{}/assets/{}.tmpl".format(get_script_dir(), path), "r").read()
     return tmpl.format(*args)
 
 
