@@ -205,7 +205,7 @@ def render_markdown(content, args={}):
     print('-' * 100)
     print(html)
     print('-' * 100)
-    open("origi.html", "w").write(html)
+    open("origin.html", "w").write(html)
     return css_beautify(html)
 
 
@@ -257,7 +257,7 @@ def replace_header(content):
 
 
 def replace_links(content):
-    pq = PyQuery(open('origi.html').read())
+    pq = PyQuery(open('origin.html').read())
     links = pq('a')
     refs = []
     index = 1
@@ -284,7 +284,7 @@ def replace_links(content):
 
 
 def fix_image(content):
-    pq = PyQuery(open('origi.html').read())
+    pq = PyQuery(open('origin.html').read())
     imgs = pq('img')
     for line in imgs.items():
         link = """<img alt="{}" src="{}" />""".format(
