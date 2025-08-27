@@ -44,14 +44,14 @@ def get_script_dir():
 
 
 def dump_cache():
-    fp = open(CACHE_STORE, "wb")
+    fp = open("{}/{}".format(get_script_dir(), CACHE_STORE), "wb")
     pickle.dump(CACHE, fp)
 
 
 def init_cache():
     global CACHE
-    if os.path.exists(CACHE_STORE):
-        fp = open(CACHE_STORE, "rb")
+    if os.path.exists("{}/{}".format(get_script_dir(), CACHE_STORE)):
+        fp = open("{}/{}".format(get_script_dir(), CACHE_STORE), "rb")
         CACHE = pickle.load(fp)
         # print(CACHE)
         return
@@ -205,7 +205,7 @@ def render_markdown(content, args={}):
     print('-' * 100)
     print(html)
     print('-' * 100)
-    open("origin.html", "w").write(html)
+    open("{}/origin.html".format(get_script_dir()), "w").write(html)
     return css_beautify(html)
 
 
@@ -257,7 +257,7 @@ def replace_header(content):
 
 
 def replace_links(content):
-    pq = PyQuery(open('origin.html').read())
+    pq = PyQuery(open('{}/origin.html'.format(get_script_dir())).read())
     links = pq('a')
     refs = []
     index = 1
@@ -284,7 +284,7 @@ def replace_links(content):
 
 
 def fix_image(content):
-    pq = PyQuery(open('origin.html').read())
+    pq = PyQuery(open('{}/origin.html'.format(get_script_dir())).read())
     imgs = pq('img')
     for line in imgs.items():
         link = """<img alt="{}" src="{}" />""".format(
@@ -414,7 +414,7 @@ def upload_media_news(post_path, only_render=False, args={}):
             # 若新增的是多图文素材，则此处应有几段 articles 结构，最多 8 段
         ]
     }
-    fp = open('./result.html', 'w')
+    fp = open('{}/result.html'.format(get_script_dir()), 'w')
     fp.write(markdowned_content)
     fp.close()
 
