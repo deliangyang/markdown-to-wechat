@@ -236,8 +236,8 @@ def replace_para(content):
 
 
 def gen_css(path, *args):
-    tmpl = open("{}/assets/{}.tmpl".format(get_script_dir(), path), "r").read()
-    return tmpl.format(*args)
+    template = open("{}/assets/{}.tmpl".format(get_script_dir(), path), "r").read()
+    return template.format(*args)
 
 
 def replace_header(content):
@@ -303,14 +303,14 @@ def format_fix(content):
     content = content.replace('</li>\n', '</li>')
     # content = content.replace('<li>', '<li style="display:block;">')
     content = content.replace("background: #272822", gen_css("code"))
-    contenxt_x = ''
+    content_x = ''
     for line in content.split('\n'):
         if line.find('<pre') < 0 and line.find('<code>') >= 0:
-            contenxt_x += re.sub(r'<code>([^<]+)</code>',
+            content_x += re.sub(r'<code>([^<]+)</code>',
                                  r'<code style="%s">\1</code>' % gen_css("line_code"), line) + '\n'
         else:
-            contenxt_x += line + '\n'
-    content = contenxt_x
+            content_x += line + '\n'
+    content = content_x
     # content = content.replace("<code>", '<code style="%s">' % gen_css("code"))
     content = content.replace("""<pre style="line-height: 125%">""",
                               """<pre style="line-height: 125%; color: white; font-size: 11px;">""")
@@ -386,16 +386,16 @@ def upload_media_news(post_path, only_render=False, args={}):
         title = title_match.group(1)
         content = content.replace(title_match.group(0), '')
 
-    markdowned_content = render_markdown(content, args)
+    markdown_content = render_markdown(content, args)
     # upload extra images
     if not args.only_render:
-        extra_iamges = list(filter(lambda x: x.startswith(image_upload_endpoint), get_upload_images(markdowned_content)))
-        for image in extra_iamges:
+        extra_images = list(filter(lambda x: x.startswith(image_upload_endpoint), get_upload_images(markdown_content)))
+        for image in extra_images:
             media_id, media_url = upload_image(image)
             uploaded_images[image] = [media_id, media_url]
-            markdowned_content = markdowned_content.replace(image, media_url)
+            markdown_content = markdown_content.replace(image, media_url)
         # link = os.path.basename(post_path).replace('.md', '')
-    digest = fetch_attr(markdowned_content, 'subtitle').strip().strip('"').strip('\'')
+    digest = fetch_attr(markdown_content, 'subtitle').strip().strip('"').strip('\'')
 
     print(filename)
     articles = {
@@ -407,7 +407,7 @@ def upload_media_news(post_path, only_render=False, args={}):
                 "author": AUTHOR,
                 "digest": digest,
                 "show_cover_pic": 1,
-                "content": markdowned_content,
+                "content": markdown_content,
                 "content_source_url": '',
                 "need_open_comment": 1,
             }
@@ -415,7 +415,7 @@ def upload_media_news(post_path, only_render=False, args={}):
         ]
     }
     fp = open('{}/result.html'.format(get_script_dir()), 'w')
-    fp.write(markdowned_content)
+    fp.write(markdown_content)
     fp.close()
 
     if only_render:
@@ -424,10 +424,10 @@ def upload_media_news(post_path, only_render=False, args={}):
     client = NewClient()
     token = client.get_access_token()
     headers = {'Content-type': 'text/plain; charset=utf-8'}
-    datas = json.dumps(articles, ensure_ascii=False).encode('utf-8')
+    post_data = json.dumps(articles, ensure_ascii=False).encode('utf-8')
 
     postUrl = "https://api.weixin.qq.com/cgi-bin/draft/add?access_token=%s" % token
-    r = requests.post(postUrl, data=datas, headers=headers)
+    r = requests.post(postUrl, data=post_data, headers=headers)
     print(r.text)
     resp = json.loads(r.text)
     print(resp)
@@ -450,7 +450,7 @@ def run(path_str, only_render=False, args={}):
     print('successful')
 
 
-def daterange(start_date, end_date):
+def date_range(start_date, end_date):
     for n in range(int((end_date - start_date).days)):
         yield start_date + timedelta(n)
 
@@ -473,7 +473,7 @@ if __name__ == '__main__':
     init_cache()
     start_time = time.time()  # 开始时间
     run(args.path, args.only_render, args)
-    # for x in daterange(datetime.now() - timedelta(days=7), datetime.now() + timedelta(days=2)):
+    # for x in date_range(datetime.now() - timedelta(days=7), datetime.now() + timedelta(days=2)):
     #     print("start time: {}".format(x.strftime("%m/%d/%Y, %H:%M:%S")))
     #     string_date = x.strftime('%Y-%m-%d')
     #     print(string_date)
