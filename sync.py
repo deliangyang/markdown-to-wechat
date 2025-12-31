@@ -28,16 +28,28 @@ from werobot import WeRoBot
 from extension_mermaid import MermaidToImageExtension
 from extension_block_quote import BlockQuoteExtension
 from extension_carbon_now import CarbonNowExtension
+import argparse
+from dataclasses import dataclass
 
-re_title = re.compile(r'^#\s*(.*)')
+
+@dataclass
+class SyncArgs:
+    path: str
+    only_render: bool = False
+    mermaid: bool = False
+    code: bool = False
+
+
+re_title = re.compile(r"^#\s*(.*)")
 
 load_dotenv()  # take environment variables from .env.
-image_upload_endpoint = os.getenv('IMAGE_UPLOAD_EDPOINT')
+image_upload_endpoint = os.getenv("IMAGE_UPLOAD_EDPOINT")
 
 CACHE = {}
 
-CACHE_STORE = os.getenv('CACHE_STORE')
-POST_DIR = os.getenv('POST_DIR')
+CACHE_STORE = os.getenv("CACHE_STORE")
+POST_DIR = os.getenv("POST_DIR")
+
 
 def get_script_dir():
     return os.path.dirname(os.path.abspath(__file__))
@@ -61,16 +73,19 @@ def init_cache():
 class NewClient:
 
     def __init__(self):
-        self.__accessToken = ''
+        self.__accessToken = ""
         self.__leftTime = 0
 
     def __real_get_access_token(self):
-        postUrl = ("https://api.weixin.qq.com/cgi-bin/token?grant_type="
-                   "client_credential&appid=%s&secret=%s" % (os.getenv('WECHAT_APP_ID'), os.getenv('WECHAT_APP_SECRET')))
+        postUrl = (
+            "https://api.weixin.qq.com/cgi-bin/token?grant_type="
+            "client_credential&appid=%s&secret=%s"
+            % (os.getenv("WECHAT_APP_ID"), os.getenv("WECHAT_APP_SECRET"))
+        )
         urlResp = urllib.request.urlopen(postUrl)
         urlResp = json.loads(urlResp.read())
-        self.__accessToken = urlResp['access_token']
-        self.__leftTime = urlResp['expires_in']
+        self.__accessToken = urlResp["access_token"]
+        self.__leftTime = urlResp["expires_in"]
 
     def get_access_token(self):
         if self.__leftTime < 10:
@@ -80,8 +95,8 @@ class NewClient:
 
 def Client():
     robot = WeRoBot()
-    robot.config["APP_ID"] = os.getenv('WECHAT_APP_ID')
-    robot.config["APP_SECRET"] = os.getenv('WECHAT_APP_SECRET')
+    robot.config["APP_ID"] = os.getenv("WECHAT_APP_ID")
+    robot.config["APP_SECRET"] = os.getenv("WECHAT_APP_SECRET")
     client = robot.client
     token = client.grant_token()
     return client, token
@@ -98,7 +113,7 @@ def file_digest(file_path):
     计算文件的 md5 值
     """
     md5 = hashlib.md5()
-    with open(file_path, 'rb') as f:
+    with open(file_path, "rb") as f:
         md5.update(f.read())
     return md5.hexdigest()
 
@@ -123,9 +138,10 @@ def upload_image_from_path(image_path):
     print("uploading image {}".format(image_path))
     try:
         media_json = client.upload_permanent_media(
-            "image", open(image_path, "rb"))  # 永久素材
-        media_id = media_json['media_id']
-        media_url = media_json['url']
+            "image", open(image_path, "rb")
+        )  # 永久素材
+        media_id = media_json["media_id"]
+        media_url = media_json["url"]
         CACHE[image_digest] = [media_id, media_url]
         dump_cache()
         print("file: {} => media_id: {}".format(image_path, media_id))
@@ -147,24 +163,26 @@ def upload_image(img_url):
     f_name = "/tmp/{}".format(name)
     if "." not in f_name:
         f_name = f_name + ".png"
-    with open(f_name, 'wb') as f:
+    with open(f_name, "wb") as f:
         f.write(resource.read())
     return upload_image_from_path(f_name)
 
 
 def get_images_from_markdown(content):
-    lines = content.split('\n')
+    lines = content.split("\n")
     images = []
     for line in lines:
         line = line.strip()
-        if line.startswith('![') and line.endswith(')'):
-            image = line.split('(')[1].split(')')[0].strip()
+        if line.startswith("![") and line.endswith(")"):
+            image = line.split("(")[1].split(")")[0].strip()
             images.append(image)
     return images
 
+
 re_upload_images = re.compile(r'src="(%s[^"]+)"' % image_upload_endpoint)
 
-def get_upload_images(content)-> list[str]:
+
+def get_upload_images(content) -> list[str]:
     matches = re_upload_images.findall(content)
     if matches:
         return list(map(lambda x: x, matches))
@@ -175,36 +193,36 @@ def fetch_attr(content, key):
     """
     从 markdown 文件中提取属性
     """
-    lines = content.split('\n')
+    lines = content.split("\n")
     for line in lines:
         if line.startswith(key):
-            return line.split(':')[1].strip()
+            return line.split(":")[1].strip()
     return ""
 
 
 def render_markdown(content, args={}):
     exts = [
-        'markdown.extensions.extra',
-        'markdown.extensions.tables',
-        'markdown.extensions.toc',
-        'markdown.extensions.sane_lists',
-        'markdown.extensions.smarty',
+        "markdown.extensions.extra",
+        "markdown.extensions.tables",
+        "markdown.extensions.toc",
+        "markdown.extensions.sane_lists",
+        "markdown.extensions.smarty",
         BlockQuoteExtension(),
     ]
     if args.mermaid:
         exts.append(MermaidToImageExtension())
     if args.code:
         exts.append(CarbonNowExtension())
-    exts.append(codehilite.makeExtension(
-        guess_lang=False,
-        noclasses=True,
-        pygments_style='monokai'
-    ))
+    exts.append(
+        codehilite.makeExtension(
+            guess_lang=False, noclasses=True, pygments_style="monokai"
+        )
+    )
 
     html = markdown.markdown(content, extensions=exts)
-    print('-' * 100)
+    print("-" * 100)
     print(html)
-    print('-' * 100)
+    print("-" * 100)
     open("{}/origin.html".format(get_script_dir()), "w").write(html)
     return css_beautify(html)
 
@@ -220,16 +238,18 @@ def update_images_urls(content, uploaded_images):
 
 def replace_para(content):
     res = []
-    pre = ''
+    pre = ""
     for line in content.split("\n"):
         if line.startswith("<p>"):
-            if pre.startswith('<blockquote>'):
+            if pre.startswith("<blockquote>"):
                 line = line.replace("<p>", gen_css("blockquote"))
             else:
                 line = line.replace("<p>", gen_css("para"))
-        if line.startswith('<blockquote>'):
+        if line.startswith("<blockquote>"):
             line = line.replace(
-                '<blockquote>', '<blockquote style="word-spacing: 0px; word-break: break-word;font-size:14px;text-align:left;border-left:7px solid #DBDBDB; padding-left:5px;margin-left:10px;">')
+                "<blockquote>",
+                '<blockquote style="word-spacing: 0px; word-break: break-word;font-size:14px;text-align:left;border-left:7px solid #DBDBDB; padding-left:5px;margin-left:10px;">',
+            )
         pre = line
         res.append(line)
     return "\n".join(res)
@@ -245,11 +265,12 @@ def replace_header(content):
     for line in content.split("\n"):
         l = line.strip()
         if l.startswith("<h") and l.endswith(">") > 0:
-            tag = l.split(' ')[0].replace('<', '')
-            value = l.split('>')[1].split('<')[0]
+            tag = l.split(" ")[0].replace("<", "")
+            value = l.split(">")[1].split("<")[0]
             digit = tag[1]
-            font = (18 + (4 - int(tag[1])) *
-                    2) if (digit >= '0' and digit <= '9') else 18
+            font = (
+                (18 + (4 - int(tag[1])) * 2) if (digit >= "0" and digit <= "9") else 18
+            )
             res.append(gen_css("sub", tag, font, value, tag))
         else:
             res.append(line)
@@ -257,8 +278,8 @@ def replace_header(content):
 
 
 def replace_links(content):
-    pq = PyQuery(open('{}/origin.html'.format(get_script_dir())).read())
-    links = pq('a')
+    pq = PyQuery(open("{}/origin.html".format(get_script_dir())).read())
+    links = pq("a")
     refs = []
     index = 1
     if len(links) == 0:
@@ -266,10 +287,10 @@ def replace_links(content):
     for l in links.items():
         link = gen_css("link", l.text(), index)
         index += 1
-        refs.append([l.attr('href'), l.text(), link])
+        refs.append([l.attr("href"), l.text(), link])
 
     for r in refs:
-        orig = "<a href=\"{}\">{}</a>".format(html.escape(r[0]), r[1])
+        orig = '<a href="{}">{}</a>'.format(html.escape(r[0]), r[1])
         content = content.replace(orig, r[2])
     content = content + "\n" + gen_css("ref_header")
     content = content + """<section class="footnotes">"""
@@ -284,12 +305,13 @@ def replace_links(content):
 
 
 def fix_image(content):
-    pq = PyQuery(open('{}/origin.html'.format(get_script_dir())).read())
-    imgs = pq('img')
+    pq = PyQuery(open("{}/origin.html".format(get_script_dir())).read())
+    imgs = pq("img")
     for line in imgs.items():
         link = """<img alt="{}" src="{}" />""".format(
-            line.attr('alt'), line.attr('src'))
-        figure = gen_css("figure", link, line.attr('alt'))
+            line.attr("alt"), line.attr("src")
+        )
+        figure = gen_css("figure", link, line.attr("alt"))
         content = content.replace(link, figure)
     return content
 
@@ -297,23 +319,30 @@ def fix_image(content):
 def format_fix(content):
     content = content.replace("<ul>\n<li>", '<ul style="margin-left:1em"><li>')
     content = content.replace("</li>\n</ul>", "</li></ul>")
-    content = content.replace(
-        "<ol>\n<li>", "<ol style=\"margin-left: 20px;\"><li>")
+    content = content.replace("<ol>\n<li>", '<ol style="margin-left: 20px;"><li>')
     content = content.replace("</li>\n</ol>", "</li></ol>")
-    content = content.replace('</li>\n', '</li>')
+    content = content.replace("</li>\n", "</li>")
     # content = content.replace('<li>', '<li style="display:block;">')
     content = content.replace("background: #272822", gen_css("code"))
-    content_x = ''
-    for line in content.split('\n'):
-        if line.find('<pre') < 0 and line.find('<code>') >= 0:
-            content_x += re.sub(r'<code>([^<]+)</code>',
-                                 r'<code style="%s">\1</code>' % gen_css("line_code"), line) + '\n'
+    content_x = ""
+    for line in content.split("\n"):
+        if line.find("<pre") < 0 and line.find("<code>") >= 0:
+            content_x += (
+                re.sub(
+                    r"<code>([^<]+)</code>",
+                    r'<code style="%s">\1</code>' % gen_css("line_code"),
+                    line,
+                )
+                + "\n"
+            )
         else:
-            content_x += line + '\n'
+            content_x += line + "\n"
     content = content_x
     # content = content.replace("<code>", '<code style="%s">' % gen_css("code"))
-    content = content.replace("""<pre style="line-height: 125%">""",
-                              """<pre style="line-height: 125%; color: white; font-size: 11px;">""")
+    content = content.replace(
+        """<pre style="line-height: 125%">""",
+        """<pre style="line-height: 125%; color: white; font-size: 11px;">""",
+    )
     return content
 
 
@@ -329,78 +358,80 @@ def css_beautify(content):
     return content
 
 
-reg_strong = re.compile(r'<b>([^<]+)</b>')
+reg_strong = re.compile(r"<b>([^<]+)</b>")
 
 
 def fix_strong(content):
-    content = reg_strong.sub(r'<b style="%s">「\1 」</b>' %
-                             gen_css("strong"), content)
+    content = reg_strong.sub(r'<b style="%s">「\1 」</b>' % gen_css("strong"), content)
     return content
 
 
 def fix_escape_tag_php(content):
-    content = content.replace("&lt;?php", '&#60;&quest;php')
+    content = content.replace("&lt;?php", "&#60;&quest;php")
     return content
 
 
-def upload_media_news(post_path, only_render=False, args={}):
+def upload_media_news(args: SyncArgs):
     """
     上传到微信公众号素材
     """
-    content = open(post_path, 'r').read()
-    TITLE = fetch_attr(content, 'title').strip('"').strip('\'')
-    gen_cover = fetch_attr(content, 'gen_cover').strip('"')
+    content = open(args.path, "r").read()
+    TITLE = fetch_attr(content, "title").strip('"').strip("'")
+    gen_cover = fetch_attr(content, "gen_cover").strip('"')
     images = get_images_from_markdown(content)
     print(images)
     print(TITLE)
     if len(images) == 0 or gen_cover == "true":
         letters = string.ascii_lowercase
-        seed = ''.join(random.choice(letters) for i in range(10))
+        seed = "".join(random.choice(letters) for i in range(10))
         print(seed)
         images = ["https://picsum.photos/seed/" + seed + "/400/600"] + images
     uploaded_images = {}
 
-    THUMB_MEDIA_ID = ''
-    if not only_render:
+    THUMB_MEDIA_ID = ""
+    if not args.only_render:
         for image in images:
-            media_id = ''
-            media_url = ''
+            media_id = ""
+            media_url = ""
             if image.startswith("http"):
                 media_id, media_url = upload_image(image)
             else:
-                _path = os.path.dirname(post_path) + '/'
+                _path = os.path.dirname(args.path) + "/"
                 media_id, media_url = upload_image_from_path(_path + image)
             if media_id != None:
                 uploaded_images[image] = [media_id, media_url]
 
         content = update_images_urls(content, uploaded_images)
 
-        THUMB_MEDIA_ID = (
-            len(images) > 0 and uploaded_images[images[0]][0]) or ''
-    AUTHOR = os.getenv('AUTHOR')
+        THUMB_MEDIA_ID = (len(images) > 0 and uploaded_images[images[0]][0]) or ""
+    AUTHOR = os.getenv("AUTHOR")
 
-    _, filename = os.path.split(post_path)
-    title = filename.replace('.md', '')
-    title_match = re_title.match(content)
+    _, filename = os.path.split(args.path)
+    title = filename.replace(".md", "")
+    title_match = re_title.match(content.strip())
     if title_match:
         title = title_match.group(1)
-        content = content.replace(title_match.group(0), '')
+        content = content.replace(title_match.group(0), "")
 
     markdown_content = render_markdown(content, args)
     # upload extra images
     if not args.only_render:
-        extra_images = list(filter(lambda x: x.startswith(image_upload_endpoint), get_upload_images(markdown_content)))
+        extra_images = list(
+            filter(
+                lambda x: x.startswith(image_upload_endpoint),
+                get_upload_images(markdown_content),
+            )
+        )
         for image in extra_images:
             media_id, media_url = upload_image(image)
             uploaded_images[image] = [media_id, media_url]
             markdown_content = markdown_content.replace(image, media_url)
         # link = os.path.basename(post_path).replace('.md', '')
-    digest = fetch_attr(markdown_content, 'subtitle').strip().strip('"').strip('\'')
+    digest = fetch_attr(markdown_content, "subtitle").strip().strip('"').strip("'")
 
     print(filename)
     articles = {
-        'articles':
-        [
+        "articles": [
             {
                 "title": title,
                 "thumb_media_id": THUMB_MEDIA_ID,
@@ -408,46 +439,46 @@ def upload_media_news(post_path, only_render=False, args={}):
                 "digest": digest,
                 "show_cover_pic": 1,
                 "content": markdown_content,
-                "content_source_url": '',
+                "content_source_url": "",
                 "need_open_comment": 1,
             }
             # 若新增的是多图文素材，则此处应有几段 articles 结构，最多 8 段
         ]
     }
-    fp = open('{}/result.html'.format(get_script_dir()), 'w')
+    fp = open("{}/result.html".format(get_script_dir()), "w")
     fp.write(markdown_content)
     fp.close()
 
-    if only_render:
+    if args.only_render:
         return
 
     client = NewClient()
     token = client.get_access_token()
-    headers = {'Content-type': 'text/plain; charset=utf-8'}
-    post_data = json.dumps(articles, ensure_ascii=False).encode('utf-8')
+    headers = {"Content-type": "text/plain; charset=utf-8"}
+    post_data = json.dumps(articles, ensure_ascii=False).encode("utf-8")
 
     postUrl = "https://api.weixin.qq.com/cgi-bin/draft/add?access_token=%s" % token
     r = requests.post(postUrl, data=post_data, headers=headers)
     print(r.text)
     resp = json.loads(r.text)
     print(resp)
-    media_id = resp['media_id']
-    cache_update(post_path)
+    media_id = resp["media_id"]
+    cache_update(args.path)
     return resp
 
 
-def run(path_str, only_render=False, args={}):
+def run(args: SyncArgs):
     # string_date = "2023-03-13"
     # print(string_date)
-    content = open(path_str, 'r').read()
-    date = fetch_attr(content, 'date').strip()
-    if file_processed(path_str):
-        print("{} has been processed".format(path_str))
+    content = open(args.path, "r").read()
+    date = fetch_attr(content, "date").strip()
+    if file_processed(args.path):
+        print("{} has been processed".format(args.path))
         # return
-    print('-' * 20, path_str, '-' * 20)
-    news_json = upload_media_news(path_str, only_render, args)
+    print("-" * 20, args.path, "-" * 20)
+    news_json = upload_media_news(args)
     print(news_json)
-    print('successful')
+    print("successful")
 
 
 def date_range(start_date, end_date):
@@ -455,24 +486,34 @@ def date_range(start_date, end_date):
         yield start_date + timedelta(n)
 
 
-def usage():
-    parser = argparse.ArgumentParser(description='Sync markdown to wechat')
-    parser.add_argument('path', type=str, help='path of markdown file')
-    parser.add_argument('-r', '--only-render', action='store_true',
-                        help='only render markdown')
-    parser.add_argument('-m', '--mermaid', action='store_true',
-                        help='convert mermaid to image')
-    parser.add_argument('-c', '--code', action='store_true',
-                        help='convert code to image')
-    return parser.parse_args()
+def parse_arguments()-> SyncArgs:
+    parser = argparse.ArgumentParser(description="Sync markdown to wechat")
+    parser.add_argument("path", type=str, help="path of markdown file")
+    parser.add_argument(
+        "-r", "--only-render", action="store_true", help="only render markdown"
+    )
+    parser.add_argument(
+        "-m", "--mermaid", action="store_true", help="convert mermaid to image"
+    )
+    parser.add_argument(
+        "-c", "--code", action="store_true", help="convert code to image"
+    )
+    args = parser.parse_args()
+    return SyncArgs(
+        path=args.path,
+        only_render=args.only_render,
+        mermaid=args.mermaid,
+        code=args.code,
+    )
 
 
-if __name__ == '__main__':
-    args = usage()
+if __name__ == "__main__":
+    args = parse_arguments()
     print("begin sync to wechat")
     init_cache()
     start_time = time.time()  # 开始时间
-    run(args.path, args.only_render, args)
+    
+    run(args)
     # for x in date_range(datetime.now() - timedelta(days=7), datetime.now() + timedelta(days=2)):
     #     print("start time: {}".format(x.strftime("%m/%d/%Y, %H:%M:%S")))
     #     string_date = x.strftime('%Y-%m-%d')
