@@ -32,7 +32,6 @@ from extension_mermaid import MermaidToImageExtension
 from extension_block_quote import BlockQuoteExtension
 from extension_carbon_now import CarbonNowExtension
 
-
 @dataclass
 class SyncArgs:
     path: str
@@ -41,6 +40,10 @@ class SyncArgs:
     code: bool = False
     open_browser: bool = False
     show_original: bool = False
+
+    def __post_init__(self):
+        if not os.path.exists(self.path) or not os.path.isfile(self.path):
+            raise FileNotFoundError(f"Markdown file '{self.path}' does not exist.")
 
 def parse_arguments() -> SyncArgs:
     parser = argparse.ArgumentParser(description="Sync markdown to wechat")
@@ -211,14 +214,14 @@ def get_images_from_markdown(content):
 re_upload_images = re.compile(r'src="(%s[^"]+)"' % image_upload_endpoint)
 
 
-def get_upload_images(content) -> list[str]:
+def get_upload_images(content: str) -> list[str]:
     matches = re_upload_images.findall(content)
     if matches:
         return list(map(lambda x: x, matches))
     return []
 
 
-def fetch_attr(content, key):
+def fetch_attr(content: str, key: str) -> str:
     """
     从 markdown 文件中提取属性
     """
@@ -253,7 +256,7 @@ def render_markdown(content, args={}):
     if args.show_original:
         print(html)
     print("-" * 100)
-    open("{}/origin.html".format(get_script_dir()), "w").write(html)
+    open(f"{get_script_dir()}/origin.html", "w").write(html)
     return css_beautify(html)
 
 
@@ -531,5 +534,4 @@ if __name__ == "__main__":
     end_time = time.time()  # 结束时间
     print("程序耗时%f秒。" % (end_time - start_time))
     if args.open_browser:
-
         webbrowser.open("result.html")
