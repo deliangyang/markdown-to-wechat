@@ -40,7 +40,7 @@ class SyncArgs:
     mermaid: bool = False
     code: bool = False
     open_browser: bool = False
-
+    show_original: bool = False
 
 def parse_arguments() -> SyncArgs:
     parser = argparse.ArgumentParser(description="Sync markdown to wechat")
@@ -57,6 +57,9 @@ def parse_arguments() -> SyncArgs:
     parser.add_argument(
         "-o", "--open-browser", action="store_true", help="open browser after sync"
     )
+    parser.add_argument(
+        "-s", "--show-original", action="store_true", help="show original markdown content"
+    )
     args = parser.parse_args()
     return SyncArgs(
         path=args.path,
@@ -64,11 +67,11 @@ def parse_arguments() -> SyncArgs:
         mermaid=args.mermaid,
         code=args.code,
         open_browser=args.open_browser,
+        show_original=args.show_original,
     )
 
 
 reg_title = re.compile(r"^#\s*(.*)")
-reg_img_p_replace = re.compile(r'<p>\s*<img ([^>]+)>\s*</p>')
 
 load_dotenv()  # take environment variables from .env.
 image_upload_endpoint = os.getenv("IMAGE_UPLOAD_ENDPOINT")
@@ -247,7 +250,8 @@ def render_markdown(content, args={}):
 
     html = markdown.markdown(content, extensions=exts)
     print("-" * 100)
-    print(html)
+    if args.show_original:
+        print(html)
     print("-" * 100)
     open("{}/origin.html".format(get_script_dir()), "w").write(html)
     return css_beautify(html)
@@ -388,12 +392,12 @@ def css_beautify(content):
 reg_strong = re.compile(r"<b>([^<]+)</b>")
 
 
-def fix_strong(content):
+def fix_strong(content: str):
     content = reg_strong.sub(r'<b style="%s">「\1 」</b>' % gen_css("strong"), content)
     return content
 
 
-def fix_escape_tag_php(content):
+def fix_escape_tag_php(content: str):
     content = content.replace("&lt;?php", "&#60;&quest;php")
     return content
 
