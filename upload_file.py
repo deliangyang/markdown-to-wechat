@@ -4,7 +4,7 @@ import os
 
 dotenv.load_dotenv()
 
-image_upload_endpoint = os.getenv('IMAGE_UPLOAD_EDPOINT')
+image_upload_endpoint = os.getenv('IMAGE_UPLOAD_ENDPOINT')
 
 def upload_file(file_path):
     global image_upload_endpoint

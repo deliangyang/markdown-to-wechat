@@ -43,7 +43,7 @@ class SyncArgs:
 re_title = re.compile(r"^#\s*(.*)")
 
 load_dotenv()  # take environment variables from .env.
-image_upload_endpoint = os.getenv("IMAGE_UPLOAD_EDPOINT")
+image_upload_endpoint = os.getenv("IMAGE_UPLOAD_ENDPOINT")
 
 CACHE = {}
 
@@ -512,7 +512,7 @@ if __name__ == "__main__":
     print("begin sync to wechat")
     init_cache()
     start_time = time.time()  # 开始时间
-    
+
     run(args)
     # for x in date_range(datetime.now() - timedelta(days=7), datetime.now() + timedelta(days=2)):
     #     print("start time: {}".format(x.strftime("%m/%d/%Y, %H:%M:%S")))
