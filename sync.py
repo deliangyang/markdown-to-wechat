@@ -12,12 +12,15 @@ import pickle
 import random
 import re
 import string
-import sys
 import time
 import urllib
 import urllib.request
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 import argparse
+import argparse
+from dataclasses import dataclass
+import webbrowser
+from pathlib import Path
 
 import markdown
 import requests
@@ -28,8 +31,6 @@ from werobot import WeRoBot
 from extension_mermaid import MermaidToImageExtension
 from extension_block_quote import BlockQuoteExtension
 from extension_carbon_now import CarbonNowExtension
-import argparse
-from dataclasses import dataclass
 
 
 @dataclass
@@ -38,32 +39,57 @@ class SyncArgs:
     only_render: bool = False
     mermaid: bool = False
     code: bool = False
+    open_browser: bool = False
 
 
-re_title = re.compile(r"^#\s*(.*)")
+def parse_arguments() -> SyncArgs:
+    parser = argparse.ArgumentParser(description="Sync markdown to wechat")
+    parser.add_argument("path", type=str, help="path of markdown file")
+    parser.add_argument(
+        "-r", "--only-render", action="store_true", help="only render markdown"
+    )
+    parser.add_argument(
+        "-m", "--mermaid", action="store_true", help="convert mermaid to image"
+    )
+    parser.add_argument(
+        "-c", "--code", action="store_true", help="convert code to image"
+    )
+    parser.add_argument(
+        "-o", "--open-browser", action="store_true", help="open browser after sync"
+    )
+    args = parser.parse_args()
+    return SyncArgs(
+        path=args.path,
+        only_render=args.only_render,
+        mermaid=args.mermaid,
+        code=args.code,
+        open_browser=args.open_browser,
+    )
+
+
+reg_title = re.compile(r"^#\s*(.*)")
+reg_img_p_replace = re.compile(r'<p>\s*<img ([^>]+)>\s*</p>')
 
 load_dotenv()  # take environment variables from .env.
 image_upload_endpoint = os.getenv("IMAGE_UPLOAD_ENDPOINT")
-
 CACHE = {}
-
 CACHE_STORE = os.getenv("CACHE_STORE")
 POST_DIR = os.getenv("POST_DIR")
 
 
-def get_script_dir():
-    return os.path.dirname(os.path.abspath(__file__))
+def get_script_dir() -> Path:
+    return Path(__file__).parent.resolve()
 
 
 def dump_cache():
-    fp = open("{}/{}".format(get_script_dir(), CACHE_STORE), "wb")
+    fp = open(f"{get_script_dir()}/{CACHE_STORE}", "wb")
     pickle.dump(CACHE, fp)
 
 
 def init_cache():
     global CACHE
-    if os.path.exists("{}/{}".format(get_script_dir(), CACHE_STORE)):
-        fp = open("{}/{}".format(get_script_dir(), CACHE_STORE), "rb")
+    if os.path.exists(f"{get_script_dir()}/{CACHE_STORE}"):
+        fp = open(f"{get_script_dir()}/{CACHE_STORE}", "rb")
         CACHE = pickle.load(fp)
         # print(CACHE)
         return
@@ -256,7 +282,7 @@ def replace_para(content):
 
 
 def gen_css(path, *args):
-    template = open("{}/assets/{}.tmpl".format(get_script_dir(), path), "r").read()
+    template = open(f"{get_script_dir()}/assets/{path}.tmpl", "r").read()
     return template.format(*args)
 
 
@@ -278,7 +304,7 @@ def replace_header(content):
 
 
 def replace_links(content):
-    pq = PyQuery(open("{}/origin.html".format(get_script_dir())).read())
+    pq = PyQuery(open(f"{get_script_dir()}/origin.html").read())
     links = pq("a")
     refs = []
     index = 1
@@ -304,8 +330,9 @@ def replace_links(content):
     return content
 
 
-def fix_image(content):
-    pq = PyQuery(open("{}/origin.html".format(get_script_dir())).read())
+def fix_image(content: str):
+    content = open(f"{get_script_dir()}/origin.html").read()
+    pq = PyQuery(content)
     imgs = pq("img")
     for line in imgs.items():
         link = """<img alt="{}" src="{}" />""".format(
@@ -384,7 +411,6 @@ def upload_media_news(args: SyncArgs):
     if len(images) == 0 or gen_cover == "true":
         letters = string.ascii_lowercase
         seed = "".join(random.choice(letters) for i in range(10))
-        print(seed)
         images = ["https://picsum.photos/seed/" + seed + "/400/600"] + images
     uploaded_images = {}
 
@@ -408,7 +434,7 @@ def upload_media_news(args: SyncArgs):
 
     _, filename = os.path.split(args.path)
     title = filename.replace(".md", "")
-    title_match = re_title.match(content.strip())
+    title_match = reg_title.match(content.strip())
     if title_match:
         title = title_match.group(1)
         content = content.replace(title_match.group(0), "")
@@ -486,27 +512,6 @@ def date_range(start_date, end_date):
         yield start_date + timedelta(n)
 
 
-def parse_arguments()-> SyncArgs:
-    parser = argparse.ArgumentParser(description="Sync markdown to wechat")
-    parser.add_argument("path", type=str, help="path of markdown file")
-    parser.add_argument(
-        "-r", "--only-render", action="store_true", help="only render markdown"
-    )
-    parser.add_argument(
-        "-m", "--mermaid", action="store_true", help="convert mermaid to image"
-    )
-    parser.add_argument(
-        "-c", "--code", action="store_true", help="convert code to image"
-    )
-    args = parser.parse_args()
-    return SyncArgs(
-        path=args.path,
-        only_render=args.only_render,
-        mermaid=args.mermaid,
-        code=args.code,
-    )
-
-
 if __name__ == "__main__":
     args = parse_arguments()
     print("begin sync to wechat")
@@ -521,3 +526,6 @@ if __name__ == "__main__":
 
     end_time = time.time()  # 结束时间
     print("程序耗时%f秒。" % (end_time - start_time))
+    if args.open_browser:
+
+        webbrowser.open("result.html")
