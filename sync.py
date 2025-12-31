@@ -83,19 +83,19 @@ CACHE_STORE = os.getenv("CACHE_STORE")
 POST_DIR = os.getenv("POST_DIR")
 
 
-def get_script_dir() -> Path:
-    return Path(__file__).parent.resolve()
+def get_script_dir():
+    return os.path.dirname(os.path.abspath(__file__))
 
 
 def dump_cache():
-    fp = open(f"{get_script_dir()}/{CACHE_STORE}", "wb")
+    fp = open("{}/{}".format(get_script_dir(), CACHE_STORE), "wb")
     pickle.dump(CACHE, fp)
 
 
 def init_cache():
     global CACHE
     if os.path.exists(f"{get_script_dir()}/{CACHE_STORE}"):
-        fp = open(f"{get_script_dir()}/{CACHE_STORE}", "rb")
+        fp = open("{}/{}".format(get_script_dir(), CACHE_STORE), "rb")
         CACHE = pickle.load(fp)
         # print(CACHE)
         return
@@ -289,7 +289,7 @@ def replace_para(content):
 
 
 def gen_css(path, *args):
-    template = open(f"{get_script_dir()}/assets/{path}.tmpl", "r").read()
+    template = open("{}/assets/{}.tmpl".format(get_script_dir(), path), "r").read()
     return template.format(*args)
 
 
@@ -311,7 +311,7 @@ def replace_header(content):
 
 
 def replace_links(content):
-    pq = PyQuery(open(f"{get_script_dir()}/origin.html").read())
+    pq = PyQuery(open("{}/origin.html".format(get_script_dir())).read())
     links = pq("a")
     refs = []
     index = 1
@@ -338,8 +338,7 @@ def replace_links(content):
 
 
 def fix_image(content: str):
-    content = open(f"{get_script_dir()}/origin.html").read()
-    pq = PyQuery(content)
+    pq = PyQuery(open("{}/origin.html".format(get_script_dir())).read())
     imgs = pq("img")
     for line in imgs.items():
         link = """<img alt="{}" src="{}" />""".format(
