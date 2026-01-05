@@ -40,6 +40,7 @@ class SyncArgs:
     code: bool = False
     open_browser: bool = False
     show_original: bool = False
+    only_word_count: bool = False
 
     def __post_init__(self):
         if not os.path.exists(self.path) or not os.path.isfile(self.path):
@@ -63,6 +64,9 @@ def parse_arguments() -> SyncArgs:
     parser.add_argument(
         "-s", "--show-original", action="store_true", help="show original markdown content"
     )
+    parser.add_argument(
+        "-w", "--only-word-count", action="store_true", help="only count words in markdown"
+    )
     args = parser.parse_args()
     return SyncArgs(
         path=args.path,
@@ -71,6 +75,7 @@ def parse_arguments() -> SyncArgs:
         code=args.code,
         open_browser=args.open_browser,
         show_original=args.show_original,
+        only_word_count=args.only_word_count,
     )
 
 
@@ -517,9 +522,35 @@ def date_range(start_date, end_date):
     for n in range(int((end_date - start_date).days)):
         yield start_date + timedelta(n)
 
+def markdown_word_count_exclude_tags(file: str)-> int:
+    """
+    计算 markdown 文件的字数，排除代码块和图片等标签
+    """
+    content = open(file, "r").read()
+    # 移除 title
+    content = re.sub(r"^#\s*.*", "", content, flags=re.MULTILINE)
+    # 移除代码块
+    content = re.sub(r"```[\s\S]*?```", "", content)
+    # 移除图片标签
+    content = re.sub(r"!\[.*?\]\(.*?\)", "", content)
+    # 移除 HTML 标签
+    content = re.sub(r"<[^>]+>", "", content)
+    # 计算字数
+    words = re.findall(r'\b\w+\b', content)
+    total = 0
+    for word in words:
+        if re.match(r'^[\u4e00-\u9fa5]$', word):
+            total += 1
+        else:
+            total += len(word)
+    return total
 
 if __name__ == "__main__":
     args = parse_arguments()
+    if args.only_word_count:
+        count = markdown_word_count_exclude_tags(args.path)
+        print(f"Word count (excluding code blocks and images): {count}")
+        exit(0)
     print("begin sync to wechat")
     init_cache()
     start_time = time.time()  # 开始时间
