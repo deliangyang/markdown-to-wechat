@@ -16,26 +16,26 @@ class BlockQuotePreprocessor:
 
     def run(self, lines):
         new_lines = []
-        blockquotes = []
+        block_quotes = []
         lines_len = len(lines)
         ident = 0
         for (idx, line) in enumerate(lines):
-            lstriped_line = str(line).lstrip()
-            ident = len(line) - len(lstriped_line)
-            if lstriped_line.startswith('>'):
-                blockquotes.append('<i style="display:block;font-size:14px;font-weight:400;">%s</i>' % re_html_tag.sub(r'&lt;\1&gt;', lstriped_line[1:]))
+            lstrip_line = str(line).lstrip()
+            ident = len(line) - len(lstrip_line)
+            if lstrip_line.startswith('>'):
+                block_quotes.append('<i style="display:block;font-size:14px;font-weight:400;">%s</i>' % re_html_tag.sub(r'&lt;\1&gt;', lstrip_line[1:]))
                 if idx + 1 < lines_len:
-                    next_lstriped_line = str(lines[idx + 1]).lstrip()
-                    next_ident = len(lines[idx + 1]) - len(next_lstriped_line)
-                    if not next_lstriped_line.startswith('>') or next_ident != ident:
+                    next_lstrip_line = str(lines[idx + 1]).lstrip()
+                    next_ident = len(lines[idx + 1]) - len(next_lstrip_line)
+                    if not next_lstrip_line.startswith('>') or next_ident != ident:
                         new_lines.append('<blockquote style="%s">' % self.__get_style(ident))
-                        new_lines.extend(blockquotes)
+                        new_lines.extend(block_quotes)
                         new_lines.append('</blockquote>')
-                        blockquotes = []
+                        block_quotes = []
             else:
                 new_lines.append(line)
-        if len(blockquotes) > 0:
+        if len(block_quotes) > 0:
             new_lines.append('<blockquote style="%s">' % self.__get_style(ident))
-            new_lines.extend(blockquotes)
+            new_lines.extend(block_quotes)
             new_lines.append('</blockquote>')
         return new_lines
