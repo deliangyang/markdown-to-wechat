@@ -32,6 +32,10 @@ from extension_mermaid import MermaidToImageExtension
 from extension_block_quote import BlockQuoteExtension
 from extension_carbon_now import CarbonNowExtension
 
+
+re_p_img = re.compile(r'<p>\s*(<img [^>]+>)\s*</p>')
+
+
 @dataclass
 class SyncArgs:
     path: str
@@ -44,7 +48,9 @@ class SyncArgs:
 
     def __post_init__(self):
         if not os.path.exists(self.path) or not os.path.isfile(self.path):
-            raise FileNotFoundError(f"Markdown file '{self.path}' does not exist.")
+            raise FileNotFoundError(
+                f"Markdown file '{self.path}' does not exist.")
+
 
 def parse_arguments() -> SyncArgs:
     parser = argparse.ArgumentParser(description="Sync markdown to wechat")
@@ -282,7 +288,10 @@ def replace_para(content):
             if pre.startswith("<blockquote>"):
                 line = line.replace("<p>", gen_css("blockquote"))
             else:
-                line = line.replace("<p>", gen_css("para"))
+                if re_p_img.match(line):
+                    line = re_p_img.sub(r'\1', line)
+                else:
+                    line = line.replace("<p>", gen_css("para"))
         if line.startswith("<blockquote>"):
             line = line.replace(
                 "<blockquote>",
@@ -294,7 +303,8 @@ def replace_para(content):
 
 
 def gen_css(path, *args):
-    template = open("{}/assets/{}.tmpl".format(get_script_dir(), path), "r").read()
+    template = open(
+        "{}/assets/{}.tmpl".format(get_script_dir(), path), "r").read()
     return template.format(*args)
 
 
@@ -307,7 +317,8 @@ def replace_header(content):
             value = l.split(">")[1].split("<")[0]
             digit = tag[1]
             font = (
-                (18 + (4 - int(tag[1])) * 2) if (digit >= "0" and digit <= "9") else 18
+                (18 + (4 - int(tag[1])) * 2) if (digit >=
+                                                 "0" and digit <= "9") else 18
             )
             res.append(gen_css("sub", tag, font, value, tag))
         else:
@@ -357,7 +368,8 @@ def fix_image(content: str):
 def format_fix(content):
     content = content.replace("<ul>\n<li>", '<ul style="margin-left:1em"><li>')
     content = content.replace("</li>\n</ul>", "</li></ul>")
-    content = content.replace("<ol>\n<li>", '<ol style="margin-left: 20px;"><li>')
+    content = content.replace(
+        "<ol>\n<li>", '<ol style="margin-left: 20px;"><li>')
     content = content.replace("</li>\n</ol>", "</li></ol>")
     content = content.replace("</li>\n", "</li>")
     # content = content.replace('<li>', '<li style="display:block;">')
@@ -400,7 +412,8 @@ reg_strong = re.compile(r"<b>([^<]+)</b>")
 
 
 def fix_strong(content: str):
-    content = reg_strong.sub(r'<b style="%s">「\1 」</b>' % gen_css("strong"), content)
+    content = reg_strong.sub(r'<b style="%s">「\1 」</b>' %
+                             gen_css("strong"), content)
     return content
 
 
@@ -440,7 +453,8 @@ def upload_media_news(args: SyncArgs):
 
         content = update_images_urls(content, uploaded_images)
 
-        THUMB_MEDIA_ID = (len(images) > 0 and uploaded_images[images[0]][0]) or ""
+        THUMB_MEDIA_ID = (
+            len(images) > 0 and uploaded_images[images[0]][0]) or ""
     AUTHOR = os.getenv("AUTHOR")
 
     _, filename = os.path.split(args.path)
@@ -464,7 +478,8 @@ def upload_media_news(args: SyncArgs):
             uploaded_images[image] = [media_id, media_url]
             markdown_content = markdown_content.replace(image, media_url)
         # link = os.path.basename(post_path).replace('.md', '')
-    digest = fetch_attr(markdown_content, "subtitle").strip().strip('"').strip("'")
+    digest = fetch_attr(
+        markdown_content, "subtitle").strip().strip('"').strip("'")
 
     print(filename)
     articles = {
@@ -522,7 +537,8 @@ def date_range(start_date, end_date):
     for n in range(int((end_date - start_date).days)):
         yield start_date + timedelta(n)
 
-def markdown_word_count_exclude_tags(file: str)-> int:
+
+def markdown_word_count_exclude_tags(file: str) -> int:
     """
     计算 markdown 文件的字数，排除代码块和图片等标签
     """
@@ -544,6 +560,7 @@ def markdown_word_count_exclude_tags(file: str)-> int:
         else:
             total += len(word)
     return total
+
 
 if __name__ == "__main__":
     args = parse_arguments()
