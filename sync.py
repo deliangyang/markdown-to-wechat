@@ -274,7 +274,7 @@ def render_markdown(content, args={}):
         exts.append(CarbonNowExtension())
     exts.append(
         codehilite.makeExtension(
-            guess_lang=False, noclasses=True, pygments_style="monokai"
+            guess_lang=False, noclasses=True, pygments_style="solarized-light"
         )
     )
 
@@ -311,7 +311,7 @@ def replace_para(content):
         if line.startswith("<blockquote>"):
             line = line.replace(
                 "<blockquote>",
-                '<blockquote style="word-spacing: 0px; word-break: break-word;font-size:14px;text-align:left;border-left:7px solid #DBDBDB; padding-left:5px;margin-left:10px;">',
+                '<blockquote style="word-spacing:0px;word-break:break-word;font-size:15px;text-align:left;border-left:3px solid #4A90D9;padding:12px 16px;margin-left:10px;background:#F7F9FC;color:#555;border-radius:0 6px 6px 0;">',
             )
         pre = line
         res.append(line)
@@ -386,7 +386,9 @@ def format_fix(content):
     content = content.replace("</li>\n</ol>", "</li></ol>")
     content = content.replace("</li>\n", "</li>")
     # content = content.replace('<li>', '<li style="display:block;">')
+    content = content.replace('style="line-height: 125%"', 'style="line-height:1.7"')
     content = content.replace("background: #272822", gen_css("code"))
+    content = content.replace('background: #fdf6e3', gen_css("code"))
     content_x = ""
     for line in content.split("\n"):
         if line.find("<pre") < 0 and line.find("<code>") >= 0:
@@ -403,8 +405,8 @@ def format_fix(content):
     content = content_x
     # content = content.replace("<code>", '<code style="%s">' % gen_css("code"))
     content = content.replace(
-        """<pre style="line-height: 125%">""",
-        """<pre style="line-height: 125%; color: white; font-size: 11px;">""",
+        """<pre style="line-height:1.7">""",
+        """<pre style="line-height:1.7;color:#c9d1d9;font-size:13px;font-family:Consolas,Inconsolata,Courier,monospace;">""",
     )
     return content
 

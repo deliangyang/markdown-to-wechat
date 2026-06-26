@@ -14,7 +14,7 @@ class BlockQuotePreprocessor:
         self.md = md
 
     def __get_style(self, ident):
-        return 'font-size:14px;text-align:left;word-spacing: 0px; word-break: break-word;border-left:7px solid #DBDBDB; padding-left:5px;margin-left:%spx;' % int(ident * 8)
+        return 'font-size:15px;text-align:left;word-spacing:0px;word-break:break-word;border-left:3px solid #4A90D9;padding:12px 16px;margin-left:%spx;background:#F7F9FC;color:#555;border-radius:0 6px 6px 0;' % int(ident * 8)
 
     def run(self, lines):
         new_lines = []
