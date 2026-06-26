@@ -32,6 +32,7 @@ from werobot import WeRoBot
 from extension_mermaid import MermaidToImageExtension
 from extension_block_quote import BlockQuoteExtension
 from extension_carbon_now import CarbonNowExtension
+from extension_math import MathToImageExtension
 
 
 re_p_img = re.compile(r"<p>\s*(<img [^>]+>)\s*</p>")
@@ -41,7 +42,8 @@ re_p_img = re.compile(r"<p>\s*(<img [^>]+>)\s*</p>")
 class SyncArgs:
     path: str
     only_render: bool = False
-    mermaid: bool = False
+    mermaid: bool = True
+    math: bool = True
     code: bool = False
     open_browser: bool = False
     show_original: bool = False
@@ -60,6 +62,12 @@ def parse_arguments() -> SyncArgs:
     )
     parser.add_argument(
         "-m", "--mermaid", action="store_true", help="convert mermaid to image"
+    )
+    parser.add_argument(
+        "--math", default=True, help="convert math formulas to image (default: True)"
+    )
+    parser.add_argument(
+        "--no-math", action="store_false", dest="math", help="disable math rendering"
     )
     parser.add_argument(
         "-c", "--code", action="store_true", help="convert code to image"
@@ -84,6 +92,7 @@ def parse_arguments() -> SyncArgs:
         path=args.path,
         only_render=args.only_render,
         mermaid=args.mermaid,
+        math=args.math,
         code=args.code,
         open_browser=args.open_browser,
         show_original=args.show_original,
@@ -257,6 +266,8 @@ def render_markdown(content, args={}):
         "markdown.extensions.smarty",
         BlockQuoteExtension(),
     ]
+    if args.math:
+        exts.append(MathToImageExtension())
     if args.mermaid:
         exts.append(MermaidToImageExtension())
     if args.code:
