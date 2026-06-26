@@ -487,7 +487,7 @@ def upload_media_news(args: SyncArgs):
                 "title": title,
                 "thumb_media_id": THUMB_MEDIA_ID,
                 "author": AUTHOR,
-                "digest": '',
+                #"digest": '',
                 "show_cover_pic": 1,
                 "content": markdown_content,
                 "content_source_url": "",
