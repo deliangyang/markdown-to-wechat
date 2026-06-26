@@ -4,6 +4,7 @@
 """
 推送文章到微信公众号
 """
+
 import hashlib
 import html
 import json
@@ -21,7 +22,7 @@ import argparse
 from dataclasses import dataclass
 import webbrowser
 from pathlib import Path
-
+import requests
 import markdown
 import requests
 from dotenv import load_dotenv
@@ -33,7 +34,7 @@ from extension_block_quote import BlockQuoteExtension
 from extension_carbon_now import CarbonNowExtension
 
 
-re_p_img = re.compile(r'<p>\s*(<img [^>]+>)\s*</p>')
+re_p_img = re.compile(r"<p>\s*(<img [^>]+>)\s*</p>")
 
 
 @dataclass
@@ -48,8 +49,7 @@ class SyncArgs:
 
     def __post_init__(self):
         if not os.path.exists(self.path) or not os.path.isfile(self.path):
-            raise FileNotFoundError(
-                f"Markdown file '{self.path}' does not exist.")
+            raise FileNotFoundError(f"Markdown file '{self.path}' does not exist.")
 
 
 def parse_arguments() -> SyncArgs:
@@ -68,10 +68,16 @@ def parse_arguments() -> SyncArgs:
         "-o", "--open-browser", action="store_true", help="open browser after sync"
     )
     parser.add_argument(
-        "-s", "--show-original", action="store_true", help="show original markdown content"
+        "-s",
+        "--show-original",
+        action="store_true",
+        help="show original markdown content",
     )
     parser.add_argument(
-        "-w", "--only-word-count", action="store_true", help="only count words in markdown"
+        "-w",
+        "--only-word-count",
+        action="store_true",
+        help="only count words in markdown",
     )
     args = parser.parse_args()
     return SyncArgs(
@@ -114,7 +120,6 @@ def init_cache():
 
 
 class NewClient:
-
     def __init__(self):
         self.__accessToken = ""
         self.__leftTime = 0
@@ -201,13 +206,13 @@ def upload_image(img_url):
     * 2、媒体文件在微信后台保存时间为 3 天，即 3 天后 media_id 失效。
     * 3、上传临时素材的格式、大小限制与公众平台官网一致。
     """
-    resource = urllib.request.urlopen(img_url)
     name = img_url.split("/")[-1]
     f_name = "/tmp/{}".format(name)
     if "." not in f_name:
         f_name = f_name + ".png"
-    with open(f_name, "wb") as f:
-        f.write(resource.read())
+    with requests.get(img_url) as response:
+        with open(f_name, "wb") as f:
+            f.write(response.content)
     return upload_image_from_path(f_name)
 
 
@@ -289,7 +294,7 @@ def replace_para(content):
                 line = line.replace("<p>", gen_css("blockquote"))
             else:
                 if re_p_img.match(line):
-                    line = re_p_img.sub(r'\1', line)
+                    line = re_p_img.sub(r"\1", line)
                 else:
                     line = line.replace("<p>", gen_css("para"))
         if line.startswith("<blockquote>"):
@@ -303,8 +308,7 @@ def replace_para(content):
 
 
 def gen_css(path, *args):
-    template = open(
-        "{}/assets/{}.tmpl".format(get_script_dir(), path), "r").read()
+    template = open("{}/assets/{}.tmpl".format(get_script_dir(), path), "r").read()
     return template.format(*args)
 
 
@@ -317,8 +321,7 @@ def replace_header(content):
             value = l.split(">")[1].split("<")[0]
             digit = tag[1]
             font = (
-                (18 + (4 - int(tag[1])) * 2) if (digit >=
-                                                 "0" and digit <= "9") else 18
+                (18 + (4 - int(tag[1])) * 2) if (digit >= "0" and digit <= "9") else 18
             )
             res.append(gen_css("sub", tag, font, value, tag))
         else:
@@ -368,8 +371,7 @@ def fix_image(content: str):
 def format_fix(content):
     content = content.replace("<ul>\n<li>", '<ul style="margin-left:1em"><li>')
     content = content.replace("</li>\n</ul>", "</li></ul>")
-    content = content.replace(
-        "<ol>\n<li>", '<ol style="margin-left: 20px;"><li>')
+    content = content.replace("<ol>\n<li>", '<ol style="margin-left: 20px;"><li>')
     content = content.replace("</li>\n</ol>", "</li></ol>")
     content = content.replace("</li>\n", "</li>")
     # content = content.replace('<li>', '<li style="display:block;">')
@@ -412,8 +414,7 @@ reg_strong = re.compile(r"<b>([^<]+)</b>")
 
 
 def fix_strong(content: str):
-    content = reg_strong.sub(r'<b style="%s">「\1 」</b>' %
-                             gen_css("strong"), content)
+    content = reg_strong.sub(r'<b style="%s">「\1 」</b>' % gen_css("strong"), content)
     return content
 
 
@@ -453,8 +454,7 @@ def upload_media_news(args: SyncArgs):
 
         content = update_images_urls(content, uploaded_images)
 
-        THUMB_MEDIA_ID = (
-            len(images) > 0 and uploaded_images[images[0]][0]) or ""
+        THUMB_MEDIA_ID = (len(images) > 0 and uploaded_images[images[0]][0]) or ""
     AUTHOR = os.getenv("AUTHOR")
 
     _, filename = os.path.split(args.path)
@@ -478,8 +478,7 @@ def upload_media_news(args: SyncArgs):
             uploaded_images[image] = [media_id, media_url]
             markdown_content = markdown_content.replace(image, media_url)
         # link = os.path.basename(post_path).replace('.md', '')
-    digest = fetch_attr(
-        markdown_content, "subtitle").strip().strip('"').strip("'")
+    digest = fetch_attr(markdown_content, "subtitle").strip().strip('"').strip("'")
 
     print(filename)
     articles = {
@@ -488,7 +487,7 @@ def upload_media_news(args: SyncArgs):
                 "title": title,
                 "thumb_media_id": THUMB_MEDIA_ID,
                 "author": AUTHOR,
-                "digest": digest,
+                "digest": '',
                 "show_cover_pic": 1,
                 "content": markdown_content,
                 "content_source_url": "",
@@ -552,10 +551,10 @@ def markdown_word_count_exclude_tags(file: str) -> int:
     # 移除 HTML 标签
     content = re.sub(r"<[^>]+>", "", content)
     # 计算字数
-    words = re.findall(r'\b\w+\b', content)
+    words = re.findall(r"\b\w+\b", content)
     total = 0
     for word in words:
-        if re.match(r'^[\u4e00-\u9fa5]$', word):
+        if re.match(r"^[\u4e00-\u9fa5]$", word):
             total += 1
         else:
             total += len(word)
