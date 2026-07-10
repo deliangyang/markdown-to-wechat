@@ -421,11 +421,14 @@ def css_beautify(content):
     return content
 
 
-reg_strong = re.compile(r"<b>([^<]+)</b>")
+reg_b = re.compile(r"<b>([^<]+)</b>")
+reg_strong = re.compile(r"<strong>([^<]+)</strong>")
 
 
 def fix_strong(content: str):
-    content = reg_strong.sub(r'<b style="%s">「\1 」</b>' % gen_css("strong"), content)
+    style = gen_css("strong")
+    content = reg_b.sub(r'<b style="%s">「\1 」</b>' % style, content)
+    content = reg_strong.sub(r'<strong style="%s">\1</strong>' % style, content)
     return content
 
 

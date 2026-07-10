@@ -2,6 +2,12 @@ from markdown.extensions import Extension
 import re
 
 re_html_tag = re.compile(r'\\\<([^>]+)>')
+re_bold = re.compile(r'\*\*(.+?)\*\*|__(.+?)__')
+
+
+def format_inline(text):
+    text = re_bold.sub(lambda m: '<strong>%s</strong>' % (m.group(1) or m.group(2)), text)
+    return text
 
 
 class BlockQuoteExtension(Extension):
@@ -25,8 +31,9 @@ class BlockQuotePreprocessor:
             lstrip_line = str(line).lstrip()
             ident = len(line) - len(lstrip_line)
             if lstrip_line.startswith('>'):
+                quote_text = format_inline(re_html_tag.sub(r'&lt;\1&gt;', lstrip_line[1:]))
                 block_quotes.append('<i style="display:block;font-size:14px;font-weight:400;">%s</i>' %
-                                    re_html_tag.sub(r'&lt;\1&gt;', lstrip_line[1:]))
+                                    quote_text)
                 if idx + 1 < lines_len:
                     next_lstrip_line = str(lines[idx + 1]).lstrip()
                     next_ident = len(lines[idx + 1]) - len(next_lstrip_line)
