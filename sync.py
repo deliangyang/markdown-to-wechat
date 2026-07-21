@@ -29,6 +29,7 @@ from dotenv import load_dotenv
 from markdown.extensions import codehilite
 from pyquery import PyQuery
 from werobot import WeRoBot
+from PIL import Image
 from extension_mermaid import MermaidToImageExtension
 from extension_block_quote import BlockQuoteExtension
 from extension_carbon_now import CarbonNowExtension
@@ -186,7 +187,42 @@ def file_processed(file_path):
     return cache_get(digest) != None
 
 
+def strip_aigc_metadata(image_path: str) -> str:
+    """
+    重新编码图片，去除 AIGC / EXIF / PNG text 等元数据后返回临时文件路径。
+    失败时回退为原路径。
+    """
+    try:
+        img = Image.open(image_path)
+        fmt = (img.format or "").upper()
+        clean = Image.new(img.mode, img.size)
+        clean.putdata(list(img.getdata()))
+
+        name = os.path.basename(image_path)
+        root, ext = os.path.splitext(name)
+        if not ext:
+            ext = ".png" if fmt == "PNG" else ".jpg"
+        out_path = "/tmp/stripped_{}{}".format(root, ext)
+
+        if fmt in ("JPEG", "JPG") or ext.lower() in (".jpg", ".jpeg"):
+            if clean.mode != "RGB":
+                clean = clean.convert("RGB")
+            clean.save(out_path, "JPEG", quality=95)
+        elif fmt == "WEBP" or ext.lower() == ".webp":
+            clean.save(out_path, "WEBP")
+        else:
+            # PNG 及其他：不传 pnginfo，丢弃 AIGC 等 text chunk
+            clean.save(out_path, "PNG")
+        print("stripped aigc metadata: {} => {}".format(image_path, out_path))
+        return out_path
+    except Exception as e:
+        print("strip aigc metadata failed, use original: {}".format(e))
+        return image_path
+
+
 def upload_image_from_path(image_path):
+    # 上传前去掉 AIGC 等元数据
+    image_path = strip_aigc_metadata(image_path)
     image_digest = file_digest(image_path)
     res = cache_get(image_digest)
     if res != None:
@@ -225,13 +261,76 @@ def upload_image(img_url):
     return upload_image_from_path(f_name)
 
 
+re_md_image = re.compile(r"!\[.*?\]\(([^)]+)\)")
+
+
+def extract_markdown_image(line: str):
+    """从一行中提取 markdown 图片路径，支持列表项包裹。"""
+    match = re_md_image.search(line.strip())
+    if match:
+        return match.group(1).strip()
+    return None
+
+
+def get_image_under_title(content: str):
+    """
+    获取一级标题正下方的第一张图片路径/URL；不存在则返回 None。
+    标题与图片之间允许空行；图片可写在列表项中，如 `- ![](x.png)`。
+    """
+    lines = content.split("\n")
+    found_title = False
+    for line in lines:
+        stripped = line.strip()
+        if not found_title:
+            if reg_title.match(stripped):
+                found_title = True
+            continue
+        if not stripped:
+            continue
+        image = extract_markdown_image(stripped)
+        if image:
+            return image
+        # 标题下首个非空行不是图片，则放弃
+        break
+    return None
+
+
+def remove_image_under_title(content: str) -> str:
+    """
+    从正文中移除一级标题正下方用作封面的那一行图片（含列表项包裹），
+    封面只用于 thumb，不再出现在生成的 HTML 中。
+    """
+    lines = content.split("\n")
+    found_title = False
+    result = []
+    removed = False
+    for line in lines:
+        stripped = line.strip()
+        if not found_title:
+            result.append(line)
+            if reg_title.match(stripped):
+                found_title = True
+            continue
+        if removed:
+            result.append(line)
+            continue
+        if not stripped:
+            result.append(line)
+            continue
+        if extract_markdown_image(stripped):
+            removed = True
+            continue
+        result.append(line)
+        removed = True
+    return "\n".join(result)
+
+
 def get_images_from_markdown(content):
     lines = content.split("\n")
     images = []
     for line in lines:
-        line = line.strip()
-        if line.startswith("![") and line.endswith(")"):
-            image = line.split("(")[1].split(")")[0].strip()
+        image = extract_markdown_image(line)
+        if image:
             images.append(image)
     return images
 
@@ -411,12 +510,13 @@ def format_fix(content):
 
 def css_beautify(content):
     content = fix_strong(content)
+    content = fix_em_dash(content)
     content = replace_para(content)
     content = replace_header(content)
     content = replace_links(content)
     content = format_fix(content)
     content = fix_image(content)
-    content = gen_css("header") + content + "</section>"
+    content = gen_css("header") + content + gen_css("end") + gen_css("footer_cta") + "</section>"
     content = fix_escape_tag_php(content)
     return content
 
@@ -432,6 +532,18 @@ def fix_strong(content: str):
     return content
 
 
+re_code_block = re.compile(r"(<(?:code|pre)[^>]*>.*?</(?:code|pre)>)", re.DOTALL)
+
+
+def fix_em_dash(content: str):
+    style = gen_css("em_dash")
+    span = '<span style="%s">——</span>' % style
+    parts = re_code_block.split(content)
+    for i in range(0, len(parts), 2):
+        parts[i] = parts[i].replace("——", span)
+    return "".join(parts)
+
+
 def fix_escape_tag_php(content: str):
     content = content.replace("&lt;?php", "&#60;&quest;php")
     return content
@@ -445,9 +557,18 @@ def upload_media_news(args: SyncArgs):
     TITLE = fetch_attr(content, "title").strip('"').strip("'")
     gen_cover = fetch_attr(content, "gen_cover").strip('"')
     images = get_images_from_markdown(content)
+    # 标题下方有图时，直接用作封面，不再从外部随机获取
+    cover_image = get_image_under_title(content)
     print(images)
     print(TITLE)
-    if len(images) == 0 or gen_cover == "true":
+    print("cover_image:", cover_image)
+    if cover_image:
+        if cover_image in images:
+            images.remove(cover_image)
+        images = [cover_image] + images
+        # 封面图只用于 thumb，从正文中去掉
+        content = remove_image_under_title(content)
+    elif len(images) == 0 or gen_cover == "true":
         letters = string.ascii_lowercase
         seed = "".join(random.choice(letters) for i in range(10))
         images = ["https://picsum.photos/seed/" + seed + "/400/600"] + images
