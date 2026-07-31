@@ -418,7 +418,7 @@ def replace_para(content):
 
 
 def gen_css(path, *args):
-    template = open("{}/assets/{}.tmpl".format(get_script_dir(), path), "r").read()
+    template = open("{}/assets/{}.tmpl".format(get_script_dir(), path), "r").read().strip()
     return template.format(*args)
 
 
@@ -429,11 +429,18 @@ def replace_header(content):
         if l.startswith("<h") and l.endswith(">") > 0:
             tag = l.split(" ")[0].replace("<", "")
             value = l.split(">")[1].split("<")[0]
-            digit = tag[1]
-            font = (
-                (18 + (4 - int(tag[1])) * 2) if (digit >= "0" and digit <= "9") else 18
-            )
-            res.append(gen_css("sub", tag, font, value, tag))
+            if tag == "h2":
+                res.append(gen_css("sub_h2", value))
+            elif tag == "h3":
+                res.append(gen_css("sub_h3", value))
+            else:
+                digit = tag[1]
+                font = (
+                    (18 + (4 - int(tag[1])) * 2)
+                    if (digit >= "0" and digit <= "9")
+                    else 18
+                )
+                res.append(gen_css("sub", tag, font, value, tag))
         else:
             res.append(line)
     return "\n".join(res)
@@ -466,23 +473,255 @@ def replace_links(content):
     return content
 
 
-def fix_image(content: str):
-    pq = PyQuery(open("{}/origin.html".format(get_script_dir())).read())
-    imgs = pq("img")
-    for line in imgs.items():
-        link = """<img alt="{}" src="{}" />""".format(
-            line.attr("alt"), line.attr("src")
+re_img_tag = re.compile(r"<img\s+([^>]+?)\s*/?\s*>", re.IGNORECASE)
+IMG_STYLE = "max-width:100%;height:auto;display:block;margin:0 auto;padding:0;border:0;vertical-align:top;"
+
+
+def fix_image(content: str) -> str:
+    def repl(match):
+        attrs = match.group(1)
+        alt_m = re.search(r'\balt="([^"]*)"', attrs)
+        src_m = re.search(r'\bsrc="([^"]*)"', attrs)
+        if not src_m:
+            return match.group(0)
+        alt_text = alt_m.group(1) if alt_m else ""
+        src_url = src_m.group(1)
+        img = '<img alt="{}" src="{}" style="{}" />'.format(
+            alt_text, src_url, IMG_STYLE
         )
-        figure = gen_css("figure", link, line.attr("alt"))
-        content = content.replace(link, figure)
-    return content
+        if alt_text.strip():
+            return gen_css("figure", img, alt_text)
+        return '<section style="margin:0 0 16px;padding:0;text-align:center;line-height:0;font-size:0;">{}</section>'.format(
+            img
+        )
+
+    return re_img_tag.sub(repl, content)
+
+
+UL_MARKERS = ("•", "◦", "▪")
+LIST_ITEM_STYLE = (
+    "margin:0 0 10px;padding-left:{pad}px;font-size:15px;line-height:1.8;"
+    "text-align:left;color:#374151;word-spacing:0;word-break:break-word;"
+)
+LIST_MARKER_STYLE = (
+    "display:inline-block;min-width:1.6em;margin-right:2px;"
+    "font-weight:600;color:#059669;"
+)
+re_label_item = re.compile(r"^[A-Za-z][A-Za-z0-9_\s\-+/\.&]*[：:]")
+
+
+def _li_plain_text(li) -> str:
+    parts = []
+    if li.text:
+        parts.append(li.text)
+    for child in li:
+        if child.tag in ("ul", "ol"):
+            continue
+        parts.append("".join(child.itertext()))
+        if child.tail:
+            parts.append(child.tail)
+    return re.sub(r"\s+", " ", "".join(parts)).strip()
+
+
+def _is_list_intro(text: str) -> bool:
+    text = text.strip()
+    if text.endswith("：") or text.endswith(":"):
+        return True
+    for suffix in ("以下几类", "如下", "包括", "分别是", "主要有"):
+        if text.endswith(suffix) or text.endswith(suffix + "："):
+            return True
+    return False
+
+
+def _looks_like_sub_item(text: str) -> bool:
+    text = text.strip()
+    if re_label_item.match(text):
+        return True
+    if len(text) <= 40:
+        return True
+    if len(text) <= 64 and text.count("，") <= 1:
+        return True
+    return False
+
+
+def _restructure_flat_list(list_el) -> None:
+    from lxml.html import Element
+
+    lis = [li for li in list_el if li.tag == "li"]
+    if len(lis) < 2:
+        return
+
+    i = 0
+    while i < len(lis):
+        li = lis[i]
+        if li.getparent() is not list_el:
+            i += 1
+            continue
+
+        plain = _li_plain_text(li)
+        if not _is_list_intro(plain) or i + 1 >= len(lis):
+            i += 1
+            continue
+
+        sub_lis = []
+        j = i + 1
+        while j < len(lis):
+            sub_li = lis[j]
+            if sub_li.getparent() is not list_el:
+                break
+            if _looks_like_sub_item(_li_plain_text(sub_li)):
+                sub_lis.append(sub_li)
+                j += 1
+            else:
+                break
+
+        if not sub_lis:
+            i += 1
+            continue
+
+        nested = Element(list_el.tag)
+        for sub_li in sub_lis:
+            nested.append(sub_li)
+        li.append(nested)
+        lis = [child for child in list_el if child.tag == "li"]
+        i += 1
+
+
+def _render_list_items(list_el, depth: int = 1) -> list[str]:
+    tag = list_el.tag
+    html_parts = []
+    pad = 16 + (depth - 1) * 28
+    idx = 1
+
+    for li in list_el:
+        if li.tag != "li":
+            continue
+
+        content_parts = []
+        nested_lists = []
+        if li.text and li.text.strip():
+            content_parts.append(li.text.strip())
+        for child in li:
+            if child.tag in ("ul", "ol"):
+                nested_lists.append(child)
+            else:
+                from lxml.etree import tostring
+
+                content_parts.append(
+                    tostring(child, encoding="unicode", method="html")
+                )
+            if child.tail and child.tail.strip():
+                content_parts.append(child.tail.strip())
+        content = "".join(content_parts).strip()
+
+        if tag == "ol":
+            marker = "{}.".format(idx)
+            idx += 1
+        else:
+            marker = UL_MARKERS[min(depth - 1, len(UL_MARKERS) - 1)]
+
+        if content:
+            html_parts.append(
+                '<p style="{}">'
+                '<span style="{}">{}</span>{}</p>'.format(
+                    LIST_ITEM_STYLE.format(pad=pad),
+                    LIST_MARKER_STYLE,
+                    marker,
+                    content,
+                )
+            )
+
+        for nested in nested_lists:
+            html_parts.extend(_render_list_items(nested, depth + 1))
+
+    return html_parts
+
+
+def fix_lists(content: str) -> str:
+    from lxml.etree import tostring
+    from lxml.html import document_fromstring, fragment_fromstring
+
+    doc = document_fromstring('<div id="__lists_root__">' + content + "</div>")
+    root = doc.xpath("//div[@id='__lists_root__']")[0]
+
+    while True:
+        all_lists = root.xpath(".//ul | .//ol")
+        if not all_lists:
+            break
+        top_lists = [
+            el
+            for el in all_lists
+            if el.getparent() is not None
+            and el.getparent().tag not in ("ul", "ol")
+        ]
+        if not top_lists:
+            break
+        for list_el in top_lists:
+            parent = list_el.getparent()
+            idx = parent.index(list_el)
+            _restructure_flat_list(list_el)
+            depth = len(list_el.xpath("ancestor::ul | ancestor::ol")) + 1
+            for i, frag_html in enumerate(_render_list_items(list_el, depth)):
+                parent.insert(idx + i, fragment_fromstring(frag_html))
+            parent.remove(list_el)
+
+    return "".join(
+        tostring(child, encoding="unicode", method="html") for child in root
+    )
+
+
+re_codeblock = re.compile(
+    r'(<div class="codehilite"[^>]*>\s*<pre[^>]*>)(.*?)(</pre>\s*</div>)',
+    re.DOTALL,
+)
+CODE_PRE_STYLE = (
+    "line-height:1.6;color:#F8F8F2;font-size:12px;margin:0;padding:8px;"
+    "white-space:pre;word-wrap:normal;word-break:normal;"
+    "overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;"
+    "font-family:'SF Mono',Consolas,Monaco,monospace;"
+)
+CODE_IN_PRE_STYLE = (
+    "display:block;white-space:pre;word-wrap:normal;word-break:normal;"
+    "overflow-x:auto;-webkit-overflow-scrolling:touch;"
+    "font-family:inherit;font-size:inherit;color:inherit;"
+)
+
+
+def _preserve_code_spaces(body: str) -> str:
+    """将代码块文本中的空格和制表符转为不可折叠字符，保留缩进。"""
+    parts = re.split(r"(<[^>]+>)", body)
+    for i in range(0, len(parts), 2):
+        parts[i] = parts[i].replace("\t", "&nbsp;&nbsp;&nbsp;&nbsp;").replace(
+            " ", "&nbsp;"
+        )
+    return "".join(parts)
+
+
+def fix_code_blocks(content: str) -> str:
+    """微信公众号不保留 pre 内换行，需转为 br 并设置 white-space。"""
+
+    def repl(match):
+        head, body, tail = match.groups()
+        head = re.sub(
+            r"<pre[^>]*>",
+            '<pre style="{}">'.format(CODE_PRE_STYLE),
+            head,
+            count=1,
+        )
+        body = re.sub(
+            r"<code(?![^>]*style=)([^>]*)>",
+            r'<code style="{}"\1>'.format(CODE_IN_PRE_STYLE),
+            body,
+            count=1,
+        )
+        body = body.replace("\n", "<br>\n")
+        body = _preserve_code_spaces(body)
+        return head + body + tail
+
+    return re_codeblock.sub(repl, content)
 
 
 def format_fix(content):
-    content = content.replace("<ul>\n<li>", '<ul style="margin-left:1em"><li>')
-    content = content.replace("</li>\n</ul>", "</li></ul>")
-    content = content.replace("<ol>\n<li>", '<ol style="margin-left: 20px;"><li>')
-    content = content.replace("</li>\n</ol>", "</li></ol>")
     content = content.replace("</li>\n", "</li>")
     # content = content.replace('<li>', '<li style="display:block;">')
     content = content.replace("background: #272822", gen_css("code"))
@@ -500,11 +739,7 @@ def format_fix(content):
         else:
             content_x += line + "\n"
     content = content_x
-    # content = content.replace("<code>", '<code style="%s">' % gen_css("code"))
-    content = content.replace(
-        """<pre style="line-height: 125%">""",
-        """<pre style="line-height: 125%; color: white; font-size: 11px;">""",
-    )
+    content = fix_code_blocks(content)
     return content
 
 
@@ -515,6 +750,7 @@ def css_beautify(content):
     content = replace_header(content)
     content = replace_links(content)
     content = format_fix(content)
+    content = fix_lists(content)
     content = fix_image(content)
     content = gen_css("header") + content + gen_css("end") + gen_css("footer_cta") + "</section>"
     content = fix_escape_tag_php(content)
