@@ -410,7 +410,7 @@ def replace_para(content):
         if line.startswith("<blockquote>"):
             line = line.replace(
                 "<blockquote>",
-                '<blockquote style="word-spacing: 0px; word-break: break-word;font-size:14px;text-align:left;border-left:7px solid #DBDBDB; padding-left:5px;margin-left:10px;">',
+                '<blockquote style="word-spacing: 0px; word-break:normal;overflow-wrap:break-word;font-size:14px;text-align:left;border-left:7px solid #DBDBDB; padding-left:5px;margin-left:10px;">',
             )
         pre = line
         res.append(line)
@@ -501,7 +501,7 @@ def fix_image(content: str) -> str:
 UL_MARKERS = ("•", "◦", "▪")
 LIST_ITEM_STYLE = (
     "margin:0 0 10px;padding-left:{pad}px;font-size:15px;line-height:1.8;"
-    "text-align:left;color:#374151;word-spacing:0;word-break:break-word;"
+    "text-align:left;color:#374151;word-spacing:0;word-break:normal;overflow-wrap:break-word;"
 )
 LIST_MARKER_STYLE = (
     "display:inline-block;min-width:1.6em;margin-right:2px;"
