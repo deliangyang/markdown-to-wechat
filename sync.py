@@ -379,11 +379,17 @@ def render_markdown(content, args={}):
 
     html = markdown.markdown(content, extensions=exts)
     print("-" * 100)
-    if args.show_original:
+    if getattr(args, "show_original", False):
         print(html)
     print("-" * 100)
-    open(f"{get_script_dir()}/origin.html", "w").write(html)
-    return css_beautify(html)
+    with open(f"{get_script_dir()}/origin.html", "w", encoding="utf-8") as fp:
+        fp.write(html)
+    if not html.strip():
+        raise ValueError(
+            "Markdown 渲染结果为空，无法生成公众号正文。"
+            "请确认源文件有正文内容（不是空文件，且去掉标题后仍有内容）。"
+        )
+    return css_beautify(html, origin_html=html)
 
 
 def update_images_urls(content, uploaded_images):
@@ -446,8 +452,11 @@ def replace_header(content):
     return "\n".join(res)
 
 
-def replace_links(content):
-    pq = PyQuery(open("{}/origin.html".format(get_script_dir())).read())
+def replace_links(content, origin_html=None):
+    source = origin_html if origin_html else content
+    if not str(source).strip():
+        return content
+    pq = PyQuery(source)
     links = pq("a")
     refs = []
     index = 1
@@ -676,12 +685,12 @@ re_codeblock = re.compile(
 )
 CODE_PRE_STYLE = (
     "line-height:1.6;color:#F8F8F2;font-size:12px;margin:0;padding:8px;"
-    "white-space:pre;word-wrap:normal;word-break:normal;"
+    "white-space:nowrap;word-wrap:normal;word-break:normal;"
     "overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;"
     "font-family:'SF Mono',Consolas,Monaco,monospace;"
 )
 CODE_IN_PRE_STYLE = (
-    "display:block;white-space:pre;word-wrap:normal;word-break:normal;"
+    "display:block;white-space:nowrap;word-wrap:normal;word-break:normal;"
     "overflow-x:auto;-webkit-overflow-scrolling:touch;"
     "font-family:inherit;font-size:inherit;color:inherit;"
 )
@@ -698,7 +707,7 @@ def _preserve_code_spaces(body: str) -> str:
 
 
 def fix_code_blocks(content: str) -> str:
-    """微信公众号不保留 pre 内换行，需转为 br 并设置 white-space。"""
+    """微信公众号不保留 pre 内换行，需转为 br；不要再保留 \\n，否则会多出空行。"""
 
     def repl(match):
         head, body, tail = match.groups()
@@ -714,7 +723,10 @@ def fix_code_blocks(content: str) -> str:
             body,
             count=1,
         )
-        body = body.replace("\n", "<br>\n")
+        body = re.sub(r"(<code[^>]*>)\n+", r"\1", body)
+        body = re.sub(r"\n+(</code>)", r"\1", body)
+        body = body.strip("\r\n").replace("\r\n", "\n").replace("\r", "\n")
+        body = body.replace("\n", "<br>")
         body = _preserve_code_spaces(body)
         return head + body + tail
 
@@ -743,12 +755,12 @@ def format_fix(content):
     return content
 
 
-def css_beautify(content):
+def css_beautify(content, origin_html=None):
     content = fix_strong(content)
     content = fix_em_dash(content)
     content = replace_para(content)
     content = replace_header(content)
-    content = replace_links(content)
+    content = replace_links(content, origin_html=origin_html)
     content = format_fix(content)
     content = fix_lists(content)
     content = fix_image(content)
@@ -789,7 +801,9 @@ def upload_media_news(args: SyncArgs):
     """
     上传到微信公众号素材
     """
-    content = open(args.path, "r").read()
+    content = open(args.path, "r", encoding="utf-8").read()
+    if not content.strip():
+        raise ValueError(f"Markdown 文件为空，无法同步: {args.path}")
     TITLE = fetch_attr(content, "title").strip('"').strip("'")
     gen_cover = fetch_attr(content, "gen_cover").strip('"')
     images = get_images_from_markdown(content)

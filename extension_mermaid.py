@@ -5,6 +5,21 @@ from upload_file import upload_file
 import time
 
 
+def _extract_mermaid_caption(lines):
+    """从 mermaid 块第一行 %% 注释提取图片下方说明。"""
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if stripped.startswith('%%'):
+            text = stripped[2:].strip()
+            if '%%' in text:
+                text = text.split('%%', 1)[0].strip()
+            return text
+        break
+    return ''
+
+
 class MermaidToImageExtension(Extension):
     def extendMarkdown(self, md):
         md.preprocessors.register(
@@ -34,7 +49,8 @@ class MermaidToImagePreprocessor:
                         print(cmd)
                         os.system(cmd)
                         url = upload_file(output)
-                        new_lines.append('![%s](%s)' % ('mermaid', url))
+                        caption = _extract_mermaid_caption(mermaid)
+                        new_lines.append('![%s](%s)' % (caption, url))
                         os.unlink(output)
                     mermaid = []
                 else:
