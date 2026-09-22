@@ -509,9 +509,12 @@ def fix_image(content: str) -> str:
 
 UL_MARKERS = ("•", "◦", "▪")
 LIST_ITEM_STYLE = (
-    "margin:0 0 10px;padding-left:{pad}px;font-size:15px;line-height:1.8;"
+    "margin:0 0 {margin_bottom};padding-left:{pad}px;font-size:15px;line-height:1.65;"
     "text-align:left;color:#374151;word-spacing:0;word-break:normal;overflow-wrap:break-word;"
 )
+LIST_ITEM_GAP = "4px"
+LIST_ITEM_GAP_LAST_NESTED = "6px"
+LIST_ITEM_GAP_LAST_TOP = "14px"
 LIST_MARKER_STYLE = (
     "display:inline-block;min-width:1.6em;margin-right:2px;"
     "font-weight:600;color:#059669;"
@@ -596,15 +599,25 @@ def _restructure_flat_list(list_el) -> None:
         i += 1
 
 
-def _render_list_items(list_el, depth: int = 1) -> list[str]:
+def _list_item_margin_bottom(
+    *, is_last: bool, depth: int, has_nested: bool, closes_top_list: bool
+) -> str:
+    if not is_last or has_nested:
+        return LIST_ITEM_GAP
+    if closes_top_list or depth == 1:
+        return LIST_ITEM_GAP_LAST_TOP
+    return LIST_ITEM_GAP_LAST_NESTED
+
+
+def _render_list_items(list_el, depth: int = 1, closes_top_list: bool = False) -> list[str]:
     tag = list_el.tag
     html_parts = []
     pad = 16 + (depth - 1) * 28
     idx = 1
 
-    for li in list_el:
-        if li.tag != "li":
-            continue
+    lis = [li for li in list_el if li.tag == "li"]
+    for li_index, li in enumerate(lis):
+        is_last = li_index == len(lis) - 1
 
         content_parts = []
         nested_lists = []
@@ -622,6 +635,12 @@ def _render_list_items(list_el, depth: int = 1) -> list[str]:
             if child.tail and child.tail.strip():
                 content_parts.append(child.tail.strip())
         content = "".join(content_parts).strip()
+        margin_bottom = _list_item_margin_bottom(
+            is_last=is_last,
+            depth=depth,
+            has_nested=bool(nested_lists),
+            closes_top_list=closes_top_list,
+        )
 
         if tag == "ol":
             marker = "{}.".format(idx)
@@ -633,7 +652,7 @@ def _render_list_items(list_el, depth: int = 1) -> list[str]:
             html_parts.append(
                 '<p style="{}">'
                 '<span style="{}">{}</span>{}</p>'.format(
-                    LIST_ITEM_STYLE.format(pad=pad),
+                    LIST_ITEM_STYLE.format(pad=pad, margin_bottom=margin_bottom),
                     LIST_MARKER_STYLE,
                     marker,
                     content,
@@ -641,7 +660,13 @@ def _render_list_items(list_el, depth: int = 1) -> list[str]:
             )
 
         for nested in nested_lists:
-            html_parts.extend(_render_list_items(nested, depth + 1))
+            html_parts.extend(
+                _render_list_items(
+                    nested,
+                    depth + 1,
+                    closes_top_list=closes_top_list and is_last,
+                )
+            )
 
     return html_parts
 
@@ -670,7 +695,7 @@ def fix_lists(content: str) -> str:
             idx = parent.index(list_el)
             _restructure_flat_list(list_el)
             depth = len(list_el.xpath("ancestor::ul | ancestor::ol")) + 1
-            for i, frag_html in enumerate(_render_list_items(list_el, depth)):
+            for i, frag_html in enumerate(_render_list_items(list_el, depth, True)):
                 parent.insert(idx + i, fragment_fromstring(frag_html))
             parent.remove(list_el)
 
