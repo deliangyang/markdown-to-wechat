@@ -39,6 +39,10 @@ from extension_math import MathToImageExtension
 re_p_img = re.compile(r"<p>\s*(<img [^>]+>)\s*</p>")
 
 
+ARTICLE_STYLES = ("default", "ambi")
+_active_style = "default"
+
+
 @dataclass
 class SyncArgs:
     path: str
@@ -49,6 +53,7 @@ class SyncArgs:
     open_browser: bool = False
     show_original: bool = False
     only_word_count: bool = False
+    style: str = "default"
 
     def __post_init__(self):
         if not os.path.exists(self.path) or not os.path.isfile(self.path):
@@ -88,6 +93,12 @@ def parse_arguments() -> SyncArgs:
         action="store_true",
         help="only count words in markdown",
     )
+    parser.add_argument(
+        "--style",
+        choices=ARTICLE_STYLES,
+        default="default",
+        help="排版主题：default 为微信标准正文，ambi 为 Ambi 品牌散文风格",
+    )
     args = parser.parse_args()
     return SyncArgs(
         path=args.path,
@@ -98,6 +109,7 @@ def parse_arguments() -> SyncArgs:
         open_browser=args.open_browser,
         show_original=args.show_original,
         only_word_count=args.only_word_count,
+        style=args.style,
     )
 
 
@@ -356,7 +368,19 @@ def fetch_attr(content: str, key: str) -> str:
     return ""
 
 
-def render_markdown(content, args={}):
+def apply_article_style(style: str) -> None:
+    global _active_style, LIST_ITEM_STYLE, LIST_MARKER_STYLE, LIST_ITEM_GAP_LAST_TOP
+    if style not in ARTICLE_STYLES:
+        raise ValueError(f"未知排版主题: {style}，可选: {', '.join(ARTICLE_STYLES)}")
+    _active_style = style
+    cfg = _STYLE_LIST_CONFIG[style]
+    LIST_ITEM_STYLE = cfg["item"]
+    LIST_MARKER_STYLE = cfg["marker"]
+    LIST_ITEM_GAP_LAST_TOP = cfg["gap_last_top"]
+
+
+def render_markdown(content, args={}, article_title=None):
+    apply_article_style(getattr(args, "style", "default") or "default")
     exts = [
         "markdown.extensions.extra",
         "markdown.extensions.tables",
@@ -389,7 +413,10 @@ def render_markdown(content, args={}):
             "Markdown 渲染结果为空，无法生成公众号正文。"
             "请确认源文件有正文内容（不是空文件，且去掉标题后仍有内容）。"
         )
-    return css_beautify(html, origin_html=html)
+    title_html = (
+        gen_css("title", article_title) if article_title else ""
+    )
+    return css_beautify(html, origin_html=html, title_html=title_html)
 
 
 def update_images_urls(content, uploaded_images):
@@ -424,7 +451,19 @@ def replace_para(content):
 
 
 def gen_css(path, *args):
-    template = open("{}/assets/{}.tmpl".format(get_script_dir(), path), "r").read().strip()
+    style_path = "{}/assets/styles/{}/{}.tmpl".format(
+        get_script_dir(), _active_style, path
+    )
+    fallback_path = "{}/assets/{}.tmpl".format(get_script_dir(), path)
+    if os.path.isfile(style_path):
+        template_path = style_path
+    elif os.path.isfile(fallback_path):
+        template_path = fallback_path
+    else:
+        raise FileNotFoundError(
+            "模板不存在: assets/styles/{}/{}.tmpl".format(_active_style, path)
+        )
+    template = open(template_path, "r").read().strip()
     return template.format(*args)
 
 
@@ -508,17 +547,43 @@ def fix_image(content: str) -> str:
 
 
 UL_MARKERS = ("•", "◦", "▪")
-LIST_ITEM_STYLE = (
-    "margin:0 0 {margin_bottom};padding-left:{pad}px;font-size:15px;line-height:1.65;"
-    "text-align:left;color:#374151;word-spacing:0;word-break:normal;overflow-wrap:break-word;"
-)
+_STYLE_LIST_CONFIG = {
+    "default": {
+        "item": (
+            "margin:0 0 {margin_bottom};padding-left:{pad}px;color:rgba(0,0,0,0.9);"
+            "font-size:17px;font-family:mp-quote,'PingFang SC',system-ui,-apple-system,"
+            "BlinkMacSystemFont,'Helvetica Neue','Hiragino Sans GB','Microsoft YaHei UI',"
+            "'Microsoft YaHei',Arial,sans-serif;letter-spacing:0.034em;font-style:normal;"
+            "font-weight:normal;line-height:1.65;text-align:left;word-spacing:0;"
+            "word-break:normal;overflow-wrap:break-word;"
+        ),
+        "marker": (
+            "display:inline-block;min-width:1.6em;margin-right:2px;"
+            "font-weight:600;color:#059669;"
+        ),
+        "gap_last_top": "14px",
+    },
+    "ambi": {
+        "item": (
+            "margin:0 0 {margin_bottom};padding-left:{pad}px;color:rgb(62,62,62);"
+            "font-size:14px;font-family:Optima-Regular,PingFangTC-light,'PingFang SC',"
+            "system-ui,-apple-system,BlinkMacSystemFont,'Helvetica Neue','Hiragino Sans GB',"
+            "'Microsoft YaHei UI','Microsoft YaHei',Arial,sans-serif;letter-spacing:2px;"
+            "font-style:normal;font-weight:400;line-height:1.6;text-align:justify;"
+            "word-spacing:0;word-break:normal;overflow-wrap:break-word;"
+        ),
+        "marker": (
+            "display:inline-block;min-width:1.6em;margin-right:2px;"
+            "font-weight:600;color:rgb(62,62,62);"
+        ),
+        "gap_last_top": "10px",
+    },
+}
+LIST_ITEM_STYLE = _STYLE_LIST_CONFIG["default"]["item"]
 LIST_ITEM_GAP = "4px"
 LIST_ITEM_GAP_LAST_NESTED = "6px"
-LIST_ITEM_GAP_LAST_TOP = "14px"
-LIST_MARKER_STYLE = (
-    "display:inline-block;min-width:1.6em;margin-right:2px;"
-    "font-weight:600;color:#059669;"
-)
+LIST_ITEM_GAP_LAST_TOP = _STYLE_LIST_CONFIG["default"]["gap_last_top"]
+LIST_MARKER_STYLE = _STYLE_LIST_CONFIG["default"]["marker"]
 re_label_item = re.compile(r"^[A-Za-z][A-Za-z0-9_\s\-+/\.&]*[：:]")
 
 
@@ -780,7 +845,7 @@ def format_fix(content):
     return content
 
 
-def css_beautify(content, origin_html=None):
+def css_beautify(content, origin_html=None, title_html=""):
     content = fix_strong(content)
     content = fix_em_dash(content)
     content = replace_para(content)
@@ -789,7 +854,14 @@ def css_beautify(content, origin_html=None):
     content = format_fix(content)
     content = fix_lists(content)
     content = fix_image(content)
-    content = gen_css("header") + content + gen_css("end") + gen_css("footer_cta") + "</section>"
+    content = (
+        gen_css("header")
+        + title_html
+        + content
+        + gen_css("end")
+        + gen_css("footer_cta")
+        + "</section>"
+    )
     content = fix_escape_tag_php(content)
     return content
 
@@ -874,7 +946,9 @@ def upload_media_news(args: SyncArgs):
         title = title_match.group(1)
         content = content.replace(title_match.group(0), "")
 
-    markdown_content = render_markdown(content, args)
+    markdown_content = render_markdown(
+        content, args, article_title=title if args.only_render else None
+    )
     # upload extra images
     if not args.only_render:
         extra_images = list(
